@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Keyboard,
+  Dimensions,
 } from "react-native";
 import { Search, X, Play, Plus, Music } from "lucide-react-native";
 import { useAudio, Track } from "@/context/AudioContext";
@@ -140,7 +141,7 @@ export default function SearchScreen() {
               onPress={() => selectCategory(item.query)}
             >
               <LinearGradient
-                colors={item.color}
+                colors={item.color as [string, string]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.categoryInner}
