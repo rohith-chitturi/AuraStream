@@ -34,6 +34,7 @@ interface AudioContextProps {
   searchQuery: string;
   searchResults: Track[];
   isSearching: boolean;
+  user: { username: string; email: string } | null;
   setSearchQuery: (query: string) => void;
   playTrack: (track: Track, newQueue?: Track[], index?: number) => Promise<void>;
   togglePlay: () => Promise<void>;
@@ -46,6 +47,9 @@ interface AudioContextProps {
   removeTrackFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
   setGuestMode: (val: boolean) => void;
   performSearch: (query: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (username: string, email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 }
 
 const AudioContext = createContext<AudioContextProps | undefined>(undefined);
@@ -98,9 +102,33 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Auth state
+  const [user, setUser] = useState<{ username: string; email: string } | null>(null);
 
   const soundRef = useRef<Audio.Sound | null>(null);
   const isSeeking = useRef(false);
+
+  // Load user session on startup
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem("aurastream_session");
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+          setGuestMode(false);
+        }
+      } catch (e) {
+        console.error("Check session failed:", e);
+      }
+    };
+    checkSession();
+  }, []);
+
+  // Reload playlists whenever the user profile changes (scopes data)
+  useEffect(() => {
+    loadPlaylists();
+  }, [user]);
 
   // Initialize Audio Mode for Background Playback
   useEffect(() => {
@@ -277,9 +305,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Local Playlists Manager
   const loadPlaylists = async () => {
     try {
-      const stored = await AsyncStorage.getItem("aurastream_playlists");
+      const key = user ? `aurastream_playlists_${user.email}` : "aurastream_playlists";
+      const stored = await AsyncStorage.getItem(key);
       if (stored) {
         setPlaylists(JSON.parse(stored));
+      } else {
+        setPlaylists([]); // Clear if no playlist
       }
     } catch (e) {
       console.error("Load playlists failed:", e);
@@ -288,7 +319,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const savePlaylists = async (updated: Playlist[]) => {
     try {
-      await AsyncStorage.setItem("aurastream_playlists", JSON.stringify(updated));
+      const key = user ? `aurastream_playlists_${user.email}` : "aurastream_playlists";
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
       setPlaylists(updated);
     } catch (e) {
       console.error("Save playlists failed:", e);
@@ -432,6 +464,72 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsSearching(false);
   };
 
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const storedUsers = await AsyncStorage.getItem("aurastream_users");
+      const usersList = storedUsers ? JSON.parse(storedUsers) : [];
+      
+      const found = usersList.find((u: any) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+      if (found) {
+        const sessionUser = { username: found.username, email: found.email };
+        await AsyncStorage.setItem("aurastream_session", JSON.stringify(sessionUser));
+        setUser(sessionUser);
+        setGuestMode(false);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Login failed:", e);
+      return false;
+    }
+  };
+
+  const register = async (username: string, email: string, password: string): Promise<boolean> => {
+    try {
+      const storedUsers = await AsyncStorage.getItem("aurastream_users");
+      const usersList = storedUsers ? JSON.parse(storedUsers) : [];
+      
+      if (usersList.some((u: any) => u.email.toLowerCase() === email.toLowerCase())) {
+        console.warn("User already exists");
+        return false;
+      }
+      
+      const newUser = { username, email, password };
+      const updatedList = [...usersList, newUser];
+      await AsyncStorage.setItem("aurastream_users", JSON.stringify(updatedList));
+      
+      // Auto log in after registration
+      const sessionUser = { username, email };
+      await AsyncStorage.setItem("aurastream_session", JSON.stringify(sessionUser));
+      setUser(sessionUser);
+      setGuestMode(false);
+      return true;
+    } catch (e) {
+      console.error("Registration failed:", e);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await AsyncStorage.removeItem("aurastream_session");
+      setUser(null);
+      setGuestMode(true);
+      // Unload active sound when signing out
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+      setCurrentTrack(null);
+      setIsPlaying(false);
+      setProgress(0);
+      setQueue([]);
+      setQueueIndex(-1);
+    } catch (e) {
+      console.error("Logout failed:", e);
+    }
+  };
+
   return (
     <AudioContext.Provider
       value={{
@@ -448,6 +546,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         searchQuery,
         searchResults,
         isSearching,
+        user,
         setSearchQuery,
         playTrack,
         togglePlay,
@@ -459,7 +558,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addTrackToPlaylist,
         removeTrackFromPlaylist,
         setGuestMode,
-        performSearch
+        performSearch,
+        login,
+        register,
+        logout
       }}
     >
       {children}
