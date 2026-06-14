@@ -76,41 +76,146 @@ export default function HomeScreen() {
 
       // Play first track and load the rest in queue
       if (tracks.length > 0) {
-        await playTrack(tracks[0], tracks, 0);
+      // Try Saavn first (fast, direct streams)
+      const saavnUrl = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`;
+      const searchRes = await fetch(saavnUrl);
+      if (!searchRes.ok) throw new Error("Search failed");
+      const json = await searchRes.json();
+      
+      if (json.success && json.data?.results?.length > 0) {
+        const tracks: Track[] = json.data.results.slice(0, 8).map((item: any) => {
+          const streams = item.downloadUrl || [];
+          const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
+                             streams.find((s: any) => s.quality === "160kbps") || 
+                             streams[streams.length - 1] || 
+                             { url: "" };
+
+          const images = item.image || [];
+          const bestImage = images.find((img: any) => img.quality === "500x500") || 
+                            images.find((img: any) => img.quality === "150x150") || 
+                            images[images.length - 1] || 
+                            { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
+
+          return {
+            id: `saavn_${item.id}`,
+            name: item.name,
+            artists: item.artists?.primary?.length > 0 
+              ? item.artists.primary.map((a: any) => ({ name: a.name })) 
+              : [{ name: item.label || "Unknown Artist" }],
+            album: {
+              name: item.album?.name || `${moodName} Aura`,
+              images: [{ url: bestImage.url }]
+            },
+            duration_ms: (item.duration || 180) * 1000,
+            streamUrl: bestStream.url
+          };
+        });
+
+        if (tracks.length > 0) {
+          await playTrack(tracks[0], tracks, 0);
+          return;
+        }
       }
     } catch (err) {
-      console.error("Mood compilation error:", err);
+      console.warn("Saavn mood compile failed, trying Invidious:", err);
+      // Fallback: Invidious
+      try {
+        const instance = "https://iv.melmac.space"; 
+        const encodedQuery = encodeURIComponent(query);
+        const searchRes = await fetch(`${instance}/api/v1/search?q=${encodedQuery}&type=video`);
+        if (!searchRes.ok) throw new Error("Search failed");
+        const searchData = await searchRes.json();
+        if (searchData.length === 0) throw new Error("No tracks found");
+
+        const tracks: Track[] = searchData.slice(0, 8).map((item: any) => ({
+          id: item.videoId,
+          name: item.title,
+          artists: [{ name: item.author }],
+          album: {
+            name: `${moodName} Aura`,
+            images: [{ url: item.videoThumbnails?.[0]?.url || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" }]
+          },
+          duration_ms: (item.lengthSeconds || 180) * 1000
+        }));
+
+        if (tracks.length > 0) {
+          await playTrack(tracks[0], tracks, 0);
+        }
+      } catch (e) {
+        console.error("Mood compilation fallback failed:", e);
+      }
     } finally {
       setAiGenerating(false);
       setActiveMood(null);
     }
   };
 
-  // Play a quick featured song by searching Invidious
+  // Play a quick featured song by searching JioSaavn
   const playQuickSong = async (name: string, artist: string) => {
     try {
-      const instance = "https://invidious.flokinet.to";
-      const query = encodeURIComponent(`${name} ${artist}`);
-      const searchRes = await fetch(`${instance}/api/v1/search?q=${query}&type=video`);
+      const saavnUrl = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(`${name} ${artist}`)}`;
+      const searchRes = await fetch(saavnUrl);
       if (!searchRes.ok) throw new Error("Search failed");
-      const searchData = await searchRes.json();
-      if (searchData.length === 0) return;
+      const json = await searchRes.json();
+      
+      if (json.success && json.data?.results?.length > 0) {
+        const matched = json.data.results[0];
+        const streams = matched.downloadUrl || [];
+        const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
+                           streams.find((s: any) => s.quality === "160kbps") || 
+                           streams[streams.length - 1] || 
+                           { url: "" };
 
-      const matched = searchData[0];
-      const track: Track = {
-        id: matched.videoId,
-        name: matched.title,
-        artists: [{ name: matched.author }],
-        album: {
-          name: "Featured Single",
-          images: [{ url: matched.videoThumbnails?.[0]?.url || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" }]
-        },
-        duration_ms: (matched.lengthSeconds || 200) * 1000
-      };
+        const images = matched.image || [];
+        const bestImage = images.find((img: any) => img.quality === "500x500") || 
+                          images.find((img: any) => img.quality === "150x150") || 
+                          images[images.length - 1] || 
+                          { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
 
-      await playTrack(track, [track], 0);
+        const track: Track = {
+          id: `saavn_${matched.id}`,
+          name: matched.name,
+          artists: matched.artists?.primary?.length > 0 
+            ? matched.artists.primary.map((a: any) => ({ name: a.name })) 
+            : [{ name: matched.label || artist }],
+          album: {
+            name: matched.album?.name || "Featured Single",
+            images: [{ url: bestImage.url }]
+          },
+          duration_ms: (matched.duration || 180) * 1000,
+          streamUrl: bestStream.url
+        };
+
+        await playTrack(track, [track], 0);
+        return;
+      }
     } catch (e) {
-      console.error("Quick play error:", e);
+      console.warn("Saavn quick play failed, trying Invidious:", e);
+      // Fallback: Invidious
+      try {
+        const instance = "https://iv.melmac.space";
+        const query = encodeURIComponent(`${name} ${artist}`);
+        const searchRes = await fetch(`${instance}/api/v1/search?q=${query}&type=video`);
+        if (!searchRes.ok) throw new Error("Search failed");
+        const searchData = await searchRes.json();
+        if (searchData.length === 0) return;
+
+        const matched = searchData[0];
+        const track: Track = {
+          id: matched.videoId,
+          name: matched.title,
+          artists: [{ name: matched.author }],
+          album: {
+            name: "Featured Single",
+            images: [{ url: matched.videoThumbnails?.[0]?.url || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" }]
+          },
+          duration_ms: (matched.lengthSeconds || 200) * 1000
+        };
+
+        await playTrack(track, [track], 0);
+      } catch (err) {
+        console.error("Quick play fallback failed:", err);
+      }
     }
   };
 
