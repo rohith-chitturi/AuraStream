@@ -503,10 +503,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   artContainer: {
-    flex: 1.1,
     justifyContent: "center",
     alignItems: "center",
-    marginVertical: 20,
+    marginVertical: 14,
   },
   albumArt: {
     maxWidth: 340,
@@ -589,11 +588,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   lyricsContainer: {
-    flex: 0.8,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    padding: 14,
+    marginBottom: 14,
   },
   lyricsLabel: {
     color: "#ffffff",
