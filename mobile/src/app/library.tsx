@@ -12,7 +12,7 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Plus, FolderPlus, Trash2, ChevronLeft, Play, Music, ArrowRight } from "lucide-react-native";
+import { Plus, FolderPlus, Trash2, ChevronLeft, Play, Music, ArrowRight, LogOut } from "lucide-react-native";
 import { useAudio, Playlist, Track } from "@/context/AudioContext";
 
 const { width } = Dimensions.get("window");
@@ -24,10 +24,14 @@ export default function LibraryScreen() {
     deletePlaylist,
     removeTrackFromPlaylist,
     playTrack,
+    user,
+    logout,
+    guestMode,
   } = useAudio();
 
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
 
   const handleCreatePlaylist = async () => {
@@ -156,7 +160,17 @@ export default function LibraryScreen() {
         <View style={styles.listContainer}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Your Library</Text>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity 
+                onPress={() => setProfileModalVisible(true)} 
+                style={[styles.avatarCircle, !user && styles.avatarGuest]}
+              >
+                <Text style={styles.avatarText}>
+                  {user ? user.username.charAt(0).toUpperCase() : "G"}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.title}>Your Library</Text>
+            </View>
             <TouchableOpacity
               onPress={() => setCreateModalVisible(true)}
               style={styles.addButton}
@@ -164,6 +178,14 @@ export default function LibraryScreen() {
               <Plus color="#ffffff" size={24} />
             </TouchableOpacity>
           </View>
+
+          {guestMode && (
+            <TouchableOpacity onPress={logout} style={styles.guestBanner}>
+              <Text style={styles.guestBannerText}>
+                You are in Guest Mode. <Text style={styles.guestBannerUnderline}>Sign in</Text> to persist playlists.
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {playlists.length === 0 ? (
             <View style={styles.emptyState}>
@@ -250,6 +272,79 @@ export default function LibraryScreen() {
                 style={[styles.modalBtn, styles.modalBtnCreate]}
               >
                 <Text style={styles.modalBtnCreateText}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Profile Details Modal */}
+      <Modal
+        visible={profileModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setProfileModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, styles.profileCard]}>
+            <View style={styles.profileHeader}>
+              <Text style={styles.profileModalTitle}>User Profile</Text>
+              <TouchableOpacity
+                onPress={() => setProfileModalVisible(false)}
+                style={styles.profileCloseBtn}
+              >
+                <Text style={styles.profileCloseBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.profileContent}>
+              <View style={[styles.profileAvatarLarge, !user && styles.avatarGuestLarge]}>
+                <Text style={styles.profileAvatarTextLarge}>
+                  {user ? user.username.charAt(0).toUpperCase() : "G"}
+                </Text>
+              </View>
+
+              <Text style={styles.profileUsername}>
+                {user ? user.username : "Guest User"}
+              </Text>
+              <Text style={styles.profileEmail}>
+                {user ? user.email : "guest@aurastream.local"}
+              </Text>
+
+              <View style={styles.badgeRow}>
+                <View style={[styles.statusBadge, !user && styles.guestBadge]}>
+                  <Text style={styles.statusBadgeText}>
+                    {user ? "Premium User" : "Guest Mode"}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.statsDivider} />
+
+              <View style={styles.statsContainer}>
+                <View style={styles.statBox}>
+                  <Text style={styles.statValue}>{playlists.length}</Text>
+                  <Text style={styles.statLabel}>Playlists</Text>
+                </View>
+                <View style={styles.statBox}>
+                  <Text style={styles.statValue}>
+                    {playlists.reduce((acc, p) => acc + p.tracks.length, 0)}
+                  </Text>
+                  <Text style={styles.statLabel}>Songs Saved</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={async () => {
+                  setProfileModalVisible(false);
+                  await logout();
+                }}
+                style={[styles.profileLogoutBtn, !user && styles.profileLoginBtn]}
+              >
+                <LogOut color="#ffffff" size={16} />
+                <Text style={styles.profileLogoutText}>
+                  {user ? "LOG OUT" : "SIGN IN / REGISTER"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -541,5 +636,177 @@ const styles = StyleSheet.create({
   modalBtnCreateText: {
     color: "#000000",
     fontWeight: "700",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#1db954",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  avatarGuest: {
+    backgroundColor: "#a855f7",
+  },
+  avatarText: {
+    color: "#000000",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  guestBanner: {
+    backgroundColor: "rgba(168, 85, 247, 0.12)",
+    borderColor: "rgba(168, 85, 247, 0.25)",
+    borderWidth: 1,
+    borderRadius: 8,
+    marginHorizontal: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    alignItems: "center",
+  },
+  guestBannerText: {
+    color: "#c084fc",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  guestBannerUnderline: {
+    textDecorationLine: "underline",
+    fontWeight: "800",
+  },
+  profileCard: {
+    maxHeight: 520,
+  },
+  profileHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+    paddingBottom: 12,
+  },
+  profileModalTitle: {
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  profileCloseBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  profileCloseBtnText: {
+    color: "#1db954",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  profileContent: {
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  profileAvatarLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#1db954",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#1db954",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  avatarGuestLarge: {
+    backgroundColor: "#a855f7",
+    shadowColor: "#a855f7",
+  },
+  profileAvatarTextLarge: {
+    color: "#000000",
+    fontSize: 32,
+    fontWeight: "900",
+  },
+  profileUsername: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  profileEmail: {
+    color: "#8e8e93",
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  badgeRow: {
+    marginBottom: 20,
+  },
+  statusBadge: {
+    backgroundColor: "rgba(29, 185, 84, 0.15)",
+    borderColor: "rgba(29, 185, 84, 0.3)",
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 14,
+  },
+  guestBadge: {
+    backgroundColor: "rgba(168, 85, 247, 0.15)",
+    borderColor: "rgba(168, 85, 247, 0.3)",
+  },
+  statusBadgeText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  statsDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    width: "100%",
+    marginBottom: 20,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+    marginBottom: 28,
+  },
+  statBox: {
+    alignItems: "center",
+  },
+  statValue: {
+    color: "#ffffff",
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  statLabel: {
+    color: "#8e8e93",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  profileLogoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#ef4444",
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 24,
+    width: "100%",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+  profileLoginBtn: {
+    backgroundColor: "#1db954",
+  },
+  profileLogoutText: {
+    color: "#ffffff",
+    fontWeight: "800",
+    fontSize: 13,
+    letterSpacing: 1,
   },
 });

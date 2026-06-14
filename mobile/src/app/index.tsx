@@ -36,7 +36,7 @@ const PRESET_MOODS = [
 ];
 
 export default function HomeScreen() {
-  const { playTrack } = useAudio();
+  const { playTrack, user, logout } = useAudio();
   const [aiGenerating, setAiGenerating] = useState(false);
   const [activeMood, setActiveMood] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
@@ -204,7 +204,10 @@ export default function HomeScreen() {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header greeting */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>{getGreeting()}</Text>
+          <Text style={styles.greeting}>
+            {getGreeting()}
+            {user ? `, ${user.username}` : ""}
+          </Text>
           <View style={styles.iconContainer}>
             <Sparkles color="#1db954" size={24} />
           </View>
@@ -296,12 +299,28 @@ export default function HomeScreen() {
         </View>
 
         {/* Info Box */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoTitle}>Guest Stream Engine active</Text>
-          <Text style={styles.infoText}>
-            All audio search queries, feeds, and tracks are fetched directly from decentralized, censorship-free Invidious instances. No Spotify Premium subscription or developer registration is required.
-          </Text>
-        </View>
+        {user ? (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>Logged in as {user.username}</Text>
+            <Text style={styles.infoText}>
+              Email: {user.email}{"\n"}
+              Your playlists and search library are automatically synchronized to your profile.
+            </Text>
+            <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+              <Text style={styles.logoutBtnText}>LOG OUT</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>Guest Session Engine active</Text>
+            <Text style={styles.infoText}>
+              You are currently using AuraStream in Guest Mode. Playlists created will not be saved permanently to an account.
+            </Text>
+            <TouchableOpacity onPress={logout} style={styles.loginBtn}>
+              <Text style={styles.loginBtnText}>SIGN IN / CREATE ACCOUNT</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -484,5 +503,36 @@ const styles = StyleSheet.create({
     color: "#8e8e8e",
     fontSize: 11,
     lineHeight: 16,
+    marginBottom: 12,
+  },
+  logoutBtn: {
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutBtnText: {
+    color: "#ef4444",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  loginBtn: {
+    backgroundColor: "rgba(29, 185, 84, 0.15)",
+    borderColor: "rgba(29, 185, 84, 0.3)",
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loginBtnText: {
+    color: "#1db954",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
 });
