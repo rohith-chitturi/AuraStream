@@ -130,6 +130,7 @@ export default function SearchScreen() {
       ) : inputVal.trim() === "" ? (
         /* Categories Browse View */
         <FlatList
+          key="categories"
           data={CATEGORIES}
           keyExtractor={(item) => item.name}
           numColumns={2}
@@ -162,6 +163,7 @@ export default function SearchScreen() {
       ) : (
         /* Search Results List */
         <FlatList
+          key="results"
           data={searchResults}
           keyExtractor={(item) => item.id}
           renderItem={renderTrackItem}
