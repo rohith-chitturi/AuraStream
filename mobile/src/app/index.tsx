@@ -54,28 +54,6 @@ export default function HomeScreen() {
     setActiveMood(moodName);
 
     try {
-      const instance = "https://invidious.flokinet.to"; // Primary fast instance
-      const encodedQuery = encodeURIComponent(query);
-      const searchRes = await fetch(`${instance}/api/v1/search?q=${encodedQuery}&type=video`);
-      
-      if (!searchRes.ok) throw new Error("Search failed");
-      const searchData = await searchRes.json();
-      if (searchData.length === 0) throw new Error("No tracks found");
-
-      // Format tracks
-      const tracks: Track[] = searchData.slice(0, 8).map((item: any) => ({
-        id: item.videoId,
-        name: item.title,
-        artists: [{ name: item.author }],
-        album: {
-          name: `${moodName} Aura`,
-          images: [{ url: item.videoThumbnails?.[0]?.url || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" }]
-        },
-        duration_ms: (item.lengthSeconds || 180) * 1000
-      }));
-
-      // Play first track and load the rest in queue
-      if (tracks.length > 0) {
       // Try Saavn first (fast, direct streams)
       const saavnUrl = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`;
       const searchRes = await fetch(saavnUrl);
