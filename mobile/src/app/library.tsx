@@ -9,9 +9,9 @@ import {
   TextInput,
   Image,
   Dimensions,
-  SafeAreaView,
   ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Plus, FolderPlus, Trash2, ChevronLeft, Play, Music, ArrowRight } from "lucide-react-native";
 import { useAudio, Playlist, Track } from "@/context/AudioContext";
 

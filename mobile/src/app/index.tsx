@@ -8,9 +8,9 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
-  SafeAreaView,
   StatusBar,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Sparkles, Play, Flame, Disc, Radio, Library } from "lucide-react-native";
 import { useAudio, Track } from "@/context/AudioContext";
@@ -39,6 +39,7 @@ export default function HomeScreen() {
   const { playTrack } = useAudio();
   const [aiGenerating, setAiGenerating] = useState(false);
   const [activeMood, setActiveMood] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
   const getGreeting = () => {
     const hours = new Date().getHours();
@@ -198,7 +199,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header greeting */}

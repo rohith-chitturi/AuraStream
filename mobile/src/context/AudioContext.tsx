@@ -331,7 +331,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await savePlaylists(updated);
   };
 
-  // Free Search Implementation via JioSaavn & Invidious Fallback
+  // Free Search Implementation via Hybrid JioSaavn & Invidious Concurrent Resolver
   const performSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -339,84 +339,96 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setIsSearching(true);
+    let saavnTracks: Track[] = [];
+    let invidiousTracks: Track[] = [];
 
-    // 1. Try JioSaavn API first (fast, direct CDN high-quality audio streams)
-    try {
-      const url = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Saavn search request failed");
-      const json = await res.json();
-
-      if (json.success && json.data?.results?.length > 0) {
-        const normalized: Track[] = json.data.results.map((item: any) => {
-          const streams = item.downloadUrl || [];
-          const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
-                             streams.find((s: any) => s.quality === "160kbps") || 
-                             streams[streams.length - 1] || 
-                             { url: "" };
-
-          const images = item.image || [];
-          const bestImage = images.find((img: any) => img.quality === "500x500") || 
-                            images.find((img: any) => img.quality === "150x150") || 
-                            images[images.length - 1] || 
-                            { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
-
-          return {
-            id: `saavn_${item.id}`,
-            name: item.name,
-            artists: item.artists?.primary?.length > 0 
-              ? item.artists.primary.map((a: any) => ({ name: a.name })) 
-              : [{ name: item.label || "Unknown Artist" }],
-            album: {
-              name: item.album?.name || "JioSaavn",
-              images: [{ url: bestImage.url }]
-            },
-            duration_ms: (item.duration || 180) * 1000,
-            streamUrl: bestStream.url
-          };
-        });
-
-        setSearchResults(normalized);
-        setIsSearching(false);
-        return;
-      }
-    } catch (err) {
-      console.warn("Saavn search failed, falling back to Invidious search:", err);
-    }
-
-    // 2. Fallback: Search via public Invidious instances with a 3-second timeout guard
-    let attempts = 0;
-    while (attempts < INVIDIOUS_INSTANCES.length) {
-      const instance = getActiveInstance();
+    // 1. Query JioSaavn (Fast, high-quality streams)
+    const saavnPromise = (async () => {
       try {
-        const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
-        const res = await fetchWithTimeout(url, { timeout: 3000 });
-        if (!res.ok) throw new Error("Search request failed");
-        
-        const data = await res.json();
-        
-        const normalized: Track[] = data.map((item: any) => ({
-          id: item.videoId,
-          name: item.title,
-          artists: [{ name: item.author }],
-          album: {
-            name: "YouTube Music",
-            images: [{ url: item.videoThumbnails?.[0]?.url || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" }]
-          },
-          duration_ms: (item.lengthSeconds || 200) * 1000
-        }));
+        const url = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && json.data?.results?.length > 0) {
+          saavnTracks = json.data.results.map((item: any) => {
+            const streams = item.downloadUrl || [];
+            const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
+                               streams.find((s: any) => s.quality === "160kbps") || 
+                               streams[streams.length - 1] || 
+                               { url: "" };
 
-        setSearchResults(normalized);
-        setIsSearching(false);
-        return;
+            const images = item.image || [];
+            const bestImage = images.find((img: any) => img.quality === "500x500") || 
+                              images.find((img: any) => img.quality === "150x150") || 
+                              images[images.length - 1] || 
+                              { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
+
+            return {
+              id: `saavn_${item.id}`,
+              name: item.name,
+              artists: item.artists?.primary?.length > 0 
+                ? item.artists.primary.map((a: any) => ({ name: a.name })) 
+                : [{ name: item.label || "Unknown Artist" }],
+              album: {
+                name: item.album?.name || "JioSaavn",
+                images: [{ url: bestImage.url }]
+              },
+              duration_ms: (item.duration || 180) * 1000,
+              streamUrl: bestStream.url
+            };
+          });
+        }
       } catch (err) {
-        console.warn(`Instance search failed: ${instance}`);
-        rotateInstance();
-        attempts++;
+        console.warn("Saavn search query failed:", err);
       }
-    }
+    })();
 
-    setSearchResults([]);
+    // 2. Query Invidious/YouTube Music concurrently (completeness index)
+    const invidiousPromise = (async () => {
+      let attempts = 0;
+      while (attempts < 2) { // Query the top 2 fast Invidious instances
+        const instance = INVIDIOUS_INSTANCES[attempts];
+        try {
+          const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
+          const res = await fetchWithTimeout(url, { timeout: 3000 });
+          if (!res.ok) throw new Error("Search request failed");
+          
+          const data = await res.json();
+          invidiousTracks = data.slice(0, 8).map((item: any) => ({
+            id: item.videoId,
+            name: item.title,
+            artists: [{ name: item.author }],
+            album: {
+              name: "YouTube Music",
+              images: [{ url: item.videoThumbnails?.[0]?.url || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" }]
+            },
+            duration_ms: (item.lengthSeconds || 200) * 1000
+          }));
+          break;
+        } catch (err) {
+          console.warn(`Invidious failed during concurrent search: ${instance}`);
+          attempts++;
+        }
+      }
+    })();
+
+    // Wait for both searches to finish (or time out)
+    await Promise.allSettled([saavnPromise, invidiousPromise]);
+
+    // Merge results, prioritizing JioSaavn (direct streams) and adding Invidious for catalog completeness
+    const merged = [...saavnTracks, ...invidiousTracks];
+    const seen = new Set<string>();
+    const deduplicated = merged.filter(track => {
+      const nameKey = track.name.toLowerCase().replace(/[^\w\s]/gi, "").trim();
+      const artistKey = track.artists[0]?.name.toLowerCase().replace(/[^\w\s]/gi, "").trim() || "";
+      const key = `${nameKey}_${artistKey}`;
+      
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    setSearchResults(deduplicated);
     setIsSearching(false);
   };
 

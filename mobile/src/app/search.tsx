@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  SafeAreaView,
   Dimensions,
 } from "react-native";
 import { Search, X, Play, Plus, Music } from "lucide-react-native";
