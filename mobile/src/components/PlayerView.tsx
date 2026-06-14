@@ -63,8 +63,9 @@ const getMockLyrics = (title: string, durationSec: number) => {
 };
 
 export default function PlayerView({ visible, onClose }: PlayerViewProps) {
-  const isSmallScreen = height < 750;
-  const artSize = isSmallScreen ? 180 : Math.min(width - 64, 320);
+  const isSmallScreen = height < 800;
+  const artSize = isSmallScreen ? Math.min(width * 0.45, 170) : Math.min(width - 64, 300);
+  const lyricsHeight = isSmallScreen ? 90 : 150;
 
   const {
     currentTrack,
@@ -327,7 +328,7 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
               </View>
 
               {/* Lyrics Panel */}
-              <View style={[styles.lyricsContainer, { flex: isSmallScreen ? 0.4 : 0.8 }, isSmallScreen && { marginBottom: 10 }]}>
+              <View style={[styles.lyricsContainer, { height: lyricsHeight }, isSmallScreen && { marginBottom: 10 }]}>
                 <Text style={styles.lyricsLabel}>Lyrics</Text>
                 <ScrollView
                   ref={lyricsScrollViewRef}
