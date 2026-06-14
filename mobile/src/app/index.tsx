@@ -154,7 +154,7 @@ export default function HomeScreen() {
                   disabled={aiGenerating}
                 >
                   <LinearGradient
-                    colors={mood.color}
+                    colors={mood.color as [string, string]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.moodBg}

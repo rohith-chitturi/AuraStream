@@ -90,7 +90,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           allowsRecordingIOS: false,
           staysActiveInBackground: true,
           playsInSilentModeIOS: true,
-          shouldRouteThroughEarpieceAndroid: false,
+          playThroughEarpieceAndroid: false,
         });
       } catch (e) {
         console.warn("Failed to set audio mode:", e);
