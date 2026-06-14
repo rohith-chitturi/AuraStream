@@ -9,26 +9,26 @@ import {
   Image,
   ActivityIndicator,
   SafeAreaView,
-  Keyboard,
   Dimensions,
 } from "react-native";
 import { Search, X, Play, Plus, Music } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudio, Track } from "@/context/AudioContext";
 import { LinearGradient } from "expo-linear-gradient";
-import PlayerView from "@/components/PlayerView";
 
 const { width } = Dimensions.get("window");
 
 const CATEGORIES = [
-  { name: "Pop", color: ["#d946ef", "#8b5cf6"], query: "pop hits 2026" },
-  { name: "Hip-Hop", color: ["#ef4444", "#f97316"], query: "hip hop rap" },
-  { name: "Electronic", color: ["#3b82f6", "#06b6d4"], query: "edm electronic dance" },
+  { name: "Pop", color: ["#d946ef", "#8b5cf6"], query: "pop hits" },
+  { name: "Hip-Hop", color: ["#ef4444", "#f97316"], query: "hip hop" },
+  { name: "Electronic", color: ["#3b82f6", "#06b6d4"], query: "edm dance" },
   { name: "Rock", color: ["#eab308", "#ca8a04"], query: "rock classics" },
-  { name: "Lofi", color: ["#10b981", "#059669"], query: "lofi beats chill" },
-  { name: "Jazz", color: ["#6366f1", "#4f46e5"], query: "jazz classic instrumental" },
+  { name: "Lofi", color: ["#10b981", "#059669"], query: "lofi sleep" },
+  { name: "Jazz", color: ["#6366f1", "#4f46e5"], query: "smooth jazz instrumental" },
 ];
 
 export default function SearchScreen() {
+  const insets = useSafeAreaInsets();
   const {
     searchQuery,
     setSearchQuery,
@@ -41,28 +41,107 @@ export default function SearchScreen() {
   } = useAudio();
 
   const [inputVal, setInputVal] = useState(searchQuery);
+  const [searchMode, setSearchMode] = useState<"songs" | "albums">("songs");
+  const [albumResults, setAlbumResults] = useState<any[]>([]);
+  const [isSearchingAlbums, setIsSearchingAlbums] = useState(false);
+  const [loadingAlbumId, setLoadingAlbumId] = useState<string | null>(null);
   const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<Track | null>(null);
 
-  // Debounced search trigger
+  // Trigger search when input query or mode shifts
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       setSearchQuery(inputVal);
-      performSearch(inputVal);
+      if (searchMode === "songs") {
+        performSearch(inputVal);
+      } else {
+        performAlbumSearch(inputVal);
+      }
     }, 400);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [inputVal]);
+  }, [inputVal, searchMode]);
+
+  const performAlbumSearch = async (query: string) => {
+    if (!query.trim()) {
+      setAlbumResults([]);
+      return;
+    }
+    setIsSearchingAlbums(true);
+    try {
+      const url = `https://saavn.sumit.co/api/search/albums?query=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Album search failed");
+      const json = await res.json();
+      if (json.success && json.data?.results) {
+        setAlbumResults(json.data.results);
+      } else {
+        setAlbumResults([]);
+      }
+    } catch (e) {
+      console.error("Album search failed:", e);
+      setAlbumResults([]);
+    } finally {
+      setIsSearchingAlbums(false);
+    }
+  };
+
+  // Click an album/movie: fetch all songs and play/queue them
+  const handlePlayAlbum = async (albumId: string, albumName: string) => {
+    setLoadingAlbumId(albumId);
+    try {
+      const res = await fetch(`https://saavn.sumit.co/api/albums?id=${albumId}`);
+      if (!res.ok) throw new Error("Album details failed");
+      const json = await res.json();
+
+      if (json.success && json.data?.songs?.length > 0) {
+        const tracks: Track[] = json.data.songs.map((song: any) => {
+          const streams = song.downloadUrl || [];
+          const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
+                             streams.find((s: any) => s.quality === "160kbps") || 
+                             streams[streams.length - 1] || 
+                             { url: "" };
+
+          const images = song.image || [];
+          const bestImage = images.find((img: any) => img.quality === "500x500") || 
+                            images.find((img: any) => img.quality === "150x150") || 
+                            images[images.length - 1] || 
+                            { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
+
+          return {
+            id: `saavn_${song.id}`,
+            name: song.name,
+            artists: song.artists?.primary?.length > 0 
+              ? song.artists.primary.map((a: any) => ({ name: a.name })) 
+              : [{ name: song.label || "Unknown Artist" }],
+            album: {
+              name: albumName,
+              images: [{ url: bestImage.url }]
+            },
+            duration_ms: (song.duration || 180) * 1000,
+            streamUrl: bestStream.url
+          };
+        });
+
+        if (tracks.length > 0) {
+          await playTrack(tracks[0], tracks, 0);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load album tracks:", e);
+    } finally {
+      setLoadingAlbumId(null);
+    }
+  };
 
   const handleClear = () => {
     setInputVal("");
     setSearchQuery("");
-    performSearch("");
+    setAlbumResults([]);
   };
 
   const selectCategory = (query: string) => {
+    setSearchMode("songs");
     setInputVal(query);
-    setSearchQuery(query);
-    performSearch(query);
   };
 
   const renderTrackItem = ({ item, index }: { item: Track; index: number }) => (
@@ -96,15 +175,51 @@ export default function SearchScreen() {
     </View>
   );
 
+  const renderAlbumItem = ({ item }: { item: any }) => {
+    const albumArtist = item.artists?.primary?.[0]?.name || "Various Artists";
+    const images = item.image || [];
+    const albumImage = images[images.length - 1]?.url || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300";
+
+    return (
+      <View style={styles.trackItem}>
+        <TouchableOpacity
+          style={styles.trackPressable}
+          onPress={() => handlePlayAlbum(item.id, item.name)}
+          disabled={loadingAlbumId !== null}
+        >
+          <Image source={{ uri: albumImage }} style={styles.trackArt} />
+          <View style={styles.trackMeta}>
+            <Text style={styles.trackName} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.trackArtist} numberOfLines={1}>
+              Movie/Album • {albumArtist} • {item.year || ""}
+            </Text>
+          </View>
+          {loadingAlbumId === item.id ? (
+            <ActivityIndicator size="small" color="#1db954" style={{ marginRight: 8 }} />
+          ) : (
+            <View style={styles.playIconContainer}>
+              <Play color="#1db954" fill="#1db954" size={16} />
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const isCurrentSearching = searchMode === "songs" ? isSearching : isSearchingAlbums;
+  const hasResults = searchMode === "songs" ? searchResults.length > 0 : albumResults.length > 0;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: Math.max(10, insets.top) }]}>
       {/* Search Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Search</Text>
         <View style={styles.searchBar}>
           <Search color="#ffffff" size={20} style={styles.searchIcon} />
           <TextInput
-            placeholder="What do you want to listen to?"
+            placeholder={searchMode === "songs" ? "Search for songs..." : "Search for albums or movies..."}
             placeholderTextColor="#777"
             value={inputVal}
             onChangeText={setInputVal}
@@ -119,10 +234,30 @@ export default function SearchScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Toggle Pills */}
+        <View style={styles.segmentBar}>
+          <TouchableOpacity
+            style={[styles.segmentBtn, searchMode === "songs" && styles.segmentBtnActive]}
+            onPress={() => setSearchMode("songs")}
+          >
+            <Text style={[styles.segmentText, searchMode === "songs" && styles.segmentTextActive]}>
+              Songs
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentBtn, searchMode === "albums" && styles.segmentBtnActive]}
+            onPress={() => setSearchMode("albums")}
+          >
+            <Text style={[styles.segmentText, searchMode === "albums" && styles.segmentTextActive]}>
+              Albums & Movies
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Main Content */}
-      {isSearching ? (
+      {/* Main Content Body */}
+      {isCurrentSearching ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1db954" />
           <Text style={styles.loadingText}>Searching Aura Stream...</Text>
@@ -154,19 +289,19 @@ export default function SearchScreen() {
             </TouchableOpacity>
           )}
         />
-      ) : searchResults.length === 0 ? (
+      ) : !hasResults ? (
         <View style={styles.emptyContainer}>
           <Music color="#b3b3b3" size={48} />
           <Text style={styles.emptyTitle}>No results found</Text>
-          <Text style={styles.emptySubtitle}>Try adjusting your keywords or checking your internet connection.</Text>
+          <Text style={styles.emptySubtitle}>Try adjusting your keywords or switching search modes.</Text>
         </View>
       ) : (
-        /* Search Results List */
+        /* Dynamic search lists */
         <FlatList
-          key="results"
-          data={searchResults}
+          key={searchMode}
+          data={searchMode === "songs" ? searchResults : albumResults}
           keyExtractor={(item) => item.id}
-          renderItem={renderTrackItem}
+          renderItem={searchMode === "songs" ? renderTrackItem : renderAlbumItem}
           contentContainerStyle={styles.listContainer}
         />
       )}
@@ -207,7 +342,7 @@ export default function SearchScreen() {
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -218,7 +353,6 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 16,
     paddingBottom: 8,
   },
   title: {
@@ -236,6 +370,7 @@ const styles = StyleSheet.create({
     height: 46,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
+    marginBottom: 12,
   },
   searchIcon: {
     marginRight: 10,
@@ -248,6 +383,31 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 6,
+  },
+  segmentBar: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  segmentBtn: {
+    backgroundColor: "#181818",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  segmentBtnActive: {
+    backgroundColor: "#1db954",
+    borderColor: "#1db954",
+  },
+  segmentText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  segmentTextActive: {
+    color: "#000000",
+    fontWeight: "700",
   },
   loadingContainer: {
     flex: 1,
