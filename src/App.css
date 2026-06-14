@@ -1,0 +1,40 @@
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: var(--bg-black);
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0; /* Critical for inner scrolling */
+  width: 100%;
+  position: relative;
+}
+
+.app-main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Critical to prevent flex item blowouts */
+  height: 100%;
+  background-color: var(--bg-dark);
+}
+
+.view-container {
+  flex: 1;
+  overflow: hidden; /* Individual view components will handle their own scroll */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .app-main-content {
+    height: calc(100% - 65px); /* Leave room for mobile bottom nav bar */
+  }
+}

@@ -1,0 +1,212 @@
+.sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--bg-black);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--player-height));
+  padding: 24px 12px 12px 12px;
+  border-right: 1px solid var(--border-light);
+}
+
+.logo-container {
+  padding-left: 8px;
+  margin-bottom: 24px;
+  cursor: pointer;
+}
+
+.logo-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  height: 38px;
+  width: 38px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo-text {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  background: linear-gradient(to right, #1ed760 0%, #a044ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.nav-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.nav-link-btn {
+  background: transparent;
+  border: none;
+  color: var(--inactive-tab);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.nav-link-btn:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.nav-link-btn.active {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.library-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex child scrolling */
+}
+
+.library-header {
+  color: var(--inactive-tab);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.playlist-list {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 12px;
+}
+
+.no-playlists {
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 12px;
+  font-style: italic;
+}
+
+.playlist-item {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.playlist-item:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.playlist-item.active {
+  color: var(--spotify-green);
+  font-weight: 500;
+}
+
+.playlist-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.logout-btn {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: auto;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  color: #ff5c5c;
+  border-color: #ff5c5c;
+  background-color: rgba(255, 92, 92, 0.05);
+}
+
+/* Mobile Nav Bar */
+.mobile-nav-bar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(65px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 100;
+  justify-content: space-around;
+  align-items: center;
+  padding-left: 10px;
+  padding-right: 10px;
+  border-top: 1px solid var(--border-light);
+  border-bottom: none;
+  border-left: none;
+  border-right: none;
+}
+
+.mobile-nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--inactive-tab);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  flex: 1;
+  height: 100%;
+  transition: color 0.2s ease;
+}
+
+.mobile-nav-btn.active {
+  color: var(--spotify-green);
+}
+
+/* Responsive Rules */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none !important;
+  }
+  
+  .mobile-nav-bar {
+    display: flex;
+  }
+}

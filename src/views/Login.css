@@ -1,0 +1,288 @@
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  width: 100vw;
+  background: radial-gradient(circle at 10% 20%, rgba(29, 185, 84, 0.15) 0%, rgba(0, 0, 0, 1) 90%);
+  padding: 20px;
+}
+
+.login-card {
+  max-width: 480px;
+  width: 100%;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+  text-align: center;
+}
+
+.login-logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.login-logo {
+  height: 60px;
+  width: 60px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.login-logo-text {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1.0px;
+  background: linear-gradient(to right, #1ed760 0%, #a044ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.login-title {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+
+.free-badge {
+  background-color: var(--spotify-green);
+  color: var(--bg-black);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 6px;
+  display: inline-block;
+  letter-spacing: 0.5px;
+}
+
+.login-subtitle {
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.5;
+  margin-bottom: 32px;
+}
+
+.login-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.connect-btn {
+  font-size: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(29, 185, 84, 0.4);
+}
+
+.btn-icon {
+  margin-right: 8px;
+}
+
+.settings-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: color 0.2s ease;
+}
+
+.settings-toggle-btn:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+/* Settings Form */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  margin-bottom: 32px;
+  animation: fadeIn 0.3s ease;
+}
+
+.settings-form h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.settings-help {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.input-group {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 14px 48px 14px 16px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.input-group input:focus {
+  border-color: var(--spotify-green);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.input-toggle-visible {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.input-toggle-visible:hover {
+  color: var(--text-primary);
+}
+
+.save-settings-btn {
+  background-color: var(--text-primary);
+  color: var(--bg-black);
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: opacity 0.2s ease;
+}
+
+.save-settings-btn:hover {
+  opacity: 0.9;
+}
+
+.cancel-settings-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.cancel-settings-btn:hover {
+  color: var(--text-primary);
+}
+
+/* Guide */
+.setup-guide {
+  text-align: left;
+  border-top: 1px solid var(--border-light);
+  padding-top: 24px;
+}
+
+.setup-guide h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.setup-guide ol {
+  padding-left: 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.setup-guide a {
+  color: var(--spotify-green);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.setup-guide a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .login-card {
+    padding: 24px;
+  }
+}
+
+.redirect-debug-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.redirect-debug-info code {
+  background-color: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-light);
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: var(--spotify-green-hover);
+  font-size: 12px;
+  font-weight: 600;
+  word-break: break-all;
+  user-select: all;
+  -webkit-user-select: all;
+}
+
+.auth-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background-color: rgba(29, 185, 84, 0.1);
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  color: var(--spotify-green-hover);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(29, 185, 84, 0.1);
+}
+
+.auth-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(29, 185, 84, 0.2);
+  border-top-color: var(--spotify-green-hover);
+  border-radius: 50%;
+  animation: rotate 0.8s linear infinite;
+}

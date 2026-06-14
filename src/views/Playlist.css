@@ -1,0 +1,243 @@
+.playlist-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  flex: 1;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.07) 0%, #121212 300px);
+  padding-bottom: calc(var(--player-height) + 20px);
+}
+
+/* Loading state */
+.playlist-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  gap: 16px;
+  color: var(--text-secondary);
+}
+
+/* Header Banner */
+.playlist-header-banner {
+  display: flex;
+  align-items: flex-end;
+  padding: 32px;
+  gap: 24px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.4) 100%);
+  min-height: 280px;
+}
+
+.playlist-cover-image {
+  width: 232px;
+  height: 232px;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
+  background-color: #282828;
+}
+
+.playlist-header-info {
+  display: flex;
+  flex-direction: column;
+  color: var(--text-primary);
+}
+
+.playlist-badge-text {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.playlist-name-title {
+  font-size: clamp(32px, 5vw, 72px);
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.playlist-desc-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.playlist-meta-details {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.meta-owner {
+  color: var(--text-primary);
+}
+
+.meta-count {
+  color: var(--text-secondary);
+}
+
+.dot {
+  color: var(--text-secondary);
+}
+
+/* Playlist Actions */
+.playlist-actions-row {
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+}
+
+.playlist-play-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: var(--spotify-green);
+  color: var(--bg-black);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.playlist-play-btn:hover {
+  background-color: var(--spotify-green-hover);
+  transform: scale(1.06);
+}
+
+.playlist-play-btn:active {
+  transform: scale(0.95);
+}
+
+.playlist-play-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.play-icon-offset {
+  margin-left: 2px;
+}
+
+/* Tracks Table */
+.playlist-tracks-table {
+  padding: 0 32px 32px 32px;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.col-num {
+  width: 32px;
+}
+
+.col-title {
+  flex: 2;
+}
+
+.col-album {
+  flex: 1.5;
+  padding: 0 16px;
+}
+
+.col-duration {
+  width: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Empty Playlist view */
+.empty-playlist {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  color: var(--text-secondary);
+  gap: 16px;
+}
+
+.empty-icon {
+  opacity: 0.3;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .playlist-view {
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 0%, #121212 180px);
+    padding-bottom: calc(var(--player-height) + 85px);
+  }
+  
+  .playlist-header-banner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px 16px;
+    min-height: auto;
+    gap: 16px;
+  }
+  
+  .playlist-cover-image {
+    width: 150px;
+    height: 150px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  }
+  
+  .playlist-header-info {
+    align-items: center;
+  }
+  
+  .playlist-badge-text {
+    font-size: 10px;
+  }
+  
+  .playlist-name-title {
+    font-size: 28px;
+    margin: 4px 0;
+  }
+  
+  .playlist-desc-text {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .playlist-meta-details {
+    font-size: 12px;
+  }
+  
+  .playlist-actions-row {
+    padding: 16px;
+    justify-content: center;
+  }
+  
+  .playlist-play-btn {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .playlist-tracks-table {
+    padding: 0 8px;
+  }
+  
+  .table-header {
+    display: none;
+  }
+}

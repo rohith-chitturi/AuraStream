@@ -1,0 +1,140 @@
+.song-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.song-row:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.song-row.active-row {
+  background-color: rgba(29, 185, 84, 0.05);
+}
+
+.song-row.active-row:hover {
+  background-color: rgba(29, 185, 84, 0.1);
+}
+
+.song-row-number {
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.row-play-icon {
+  display: none;
+  color: var(--text-primary);
+}
+
+.song-row:hover .row-index {
+  display: none;
+}
+
+.song-row:hover .row-play-icon {
+  display: block;
+}
+
+.playing-volume-icon {
+  color: var(--spotify-green);
+  animation: bounce 1s infinite alternate;
+}
+
+.song-row-album-art {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  margin-right: 16px;
+  background-color: #282828;
+}
+
+.song-row-info {
+  flex: 2;
+  min-width: 0; /* Ensures ellipsis works inside flex children */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.song-row-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.active-row .song-row-title {
+  color: var(--spotify-green);
+}
+
+.song-row-artists {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.song-row:hover .song-row-artists {
+  color: var(--text-primary);
+}
+
+.song-row-album {
+  flex: 1.5;
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding: 0 16px;
+}
+
+.song-row:hover .song-row-album {
+  color: var(--text-primary);
+}
+
+.song-row-duration {
+  width: 60px;
+  text-align: right;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.song-row:hover .song-row-duration {
+  color: var(--text-primary);
+}
+
+@keyframes bounce {
+  from {
+    transform: scale(0.9);
+  }
+  to {
+    transform: scale(1.1);
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .song-row {
+    padding: 8px 8px;
+  }
+  
+  .song-row-number {
+    width: 24px;
+  }
+  
+  .song-row-album-art {
+    margin-right: 12px;
+  }
+  
+  .song-row-info {
+    flex: 3;
+  }
+  
+  .song-row-duration {
+    width: 45px;
+    font-size: 12px;
+  }
+}

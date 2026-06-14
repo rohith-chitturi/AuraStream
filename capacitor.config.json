@@ -1,0 +1,13 @@
+{
+  "appId": "com.aurastream.app",
+  "appName": "AuraStream",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "aurastream"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
