@@ -377,11 +377,20 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 1. Query JioSaavn (Fast, high-quality streams)
     const saavnPromise = (async () => {
       try {
-        const url = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`;
-        const res = await fetch(url);
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json.success && json.data?.results?.length > 0) {
+        let json;
+        try {
+          const res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`);
+          if (res.ok) json = await res.json();
+        } catch (e) {
+          console.warn("saavn.dev search failed, trying backup");
+        }
+
+        if (!json || !json.success) {
+          const res = await fetch(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`);
+          if (res.ok) json = await res.json();
+        }
+
+        if (json && json.success && json.data?.results?.length > 0) {
           saavnTracks = json.data.results.map((item: any) => {
             const streams = item.downloadUrl || [];
             const bestStream = streams.find((s: any) => s.quality === "320kbps") || 

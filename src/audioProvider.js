@@ -31,10 +31,77 @@ const rotateInstance = () => {
  * @returns {Promise<string>} videoId
  */
 export const searchAndGetAudioStream = async (trackName, artistName) => {
+  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+
+  // 1. Search JioSaavn first (Fast CDN, high-quality streams)
+  try {
+    const saavnUrl = `https://saavn.dev/api/search/songs?query=${encodeURIComponent(trackName + " " + artistName)}`;
+    let saavnRes;
+    if (isNative) {
+      const res = await CapacitorHttp.get({ url: saavnUrl, connectTimeout: 3000 });
+      if (res.status === 200) saavnRes = res.data;
+    } else {
+      const res = await fetch(saavnUrl, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) saavnRes = await res.json();
+    }
+
+    if (saavnRes && saavnRes.success && saavnRes.data?.results?.length > 0) {
+      const matched = saavnRes.data.results[0];
+      const streams = matched.downloadUrl || [];
+      const bestStream = streams.find((s) => s.quality === "320kbps") || 
+                         streams.find((s) => s.quality === "160kbps") || 
+                         streams[streams.length - 1] || 
+                         { url: "" };
+      
+      if (bestStream.url) {
+        console.log("Resolved track via JioSaavn CDN:", trackName, bestStream.url);
+        return {
+          streamUrl: bestStream.url,
+          videoId: `saavn_${matched.id}`,
+          duration: matched.duration || 180
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("JioSaavn fast resolver failed, trying backup Sumit API:", err.message);
+    
+    // Backup Sumit Saavn host
+    try {
+      const saavnUrl = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(trackName + " " + artistName)}`;
+      let saavnRes;
+      if (isNative) {
+        const res = await CapacitorHttp.get({ url: saavnUrl, connectTimeout: 3000 });
+        if (res.status === 200) saavnRes = res.data;
+      } else {
+        const res = await fetch(saavnUrl, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) saavnRes = await res.json();
+      }
+
+      if (saavnRes && saavnRes.success && saavnRes.data?.results?.length > 0) {
+        const matched = saavnRes.data.results[0];
+        const streams = matched.downloadUrl || [];
+        const bestStream = streams.find((s) => s.quality === "320kbps") || 
+                           streams.find((s) => s.quality === "160kbps") || 
+                           streams[streams.length - 1] || 
+                           { url: "" };
+        
+        if (bestStream.url) {
+          console.log("Resolved track via backup JioSaavn CDN:", trackName, bestStream.url);
+          return {
+            streamUrl: bestStream.url,
+            videoId: `saavn_${matched.id}`,
+            duration: matched.duration || 180
+          };
+        }
+      }
+    } catch (innerErr) {
+      console.warn("Backup JioSaavn resolver failed:", innerErr.message);
+    }
+  }
+
+  // 2. Fallback to Invidious search
   const query = `${trackName} ${artistName} audio`;
   const encodedQuery = encodeURIComponent(query);
-  
-  const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
   
   let attempts = 0;
   while (attempts < INVIDIOUS_INSTANCES.length) {
