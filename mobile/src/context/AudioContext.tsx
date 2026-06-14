@@ -11,6 +11,7 @@ export interface Track {
     images: { url: string }[];
   };
   duration_ms: number;
+  streamUrl?: string;
 }
 
 export interface Playlist {
@@ -50,11 +51,11 @@ interface AudioContextProps {
 const AudioContext = createContext<AudioContextProps | undefined>(undefined);
 
 const INVIDIOUS_INSTANCES = [
+  "https://iv.melmac.space", // Put verified fast working instance first
   "https://invidious.flokinet.to",
   "https://invidious.nerdvpn.de",
   "https://invidious.yewtu.ch",
-  "https://invidious.no-logs.com",
-  "https://iv.melmac.space"
+  "https://invidious.no-logs.com"
 ];
 
 let activeInstanceIndex = 0;
@@ -63,6 +64,25 @@ const rotateInstance = () => {
   activeInstanceIndex = (activeInstanceIndex + 1) % INVIDIOUS_INSTANCES.length;
   console.log(`Rotating Invidious instance to: ${getActiveInstance()}`);
 };
+
+// Helper to fetch with timeout
+async function fetchWithTimeout(resource: string, options: any = {}) {
+  const { timeout = 3000 } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+}
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
@@ -150,34 +170,38 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await soundRef.current.unloadAsync();
       }
 
-      // Fetch streaming URL from Invidious
-      let streamUrl = "";
-      let attempts = 0;
-      let videoId = track.id; // Search query matches videoId or we look it up
+      // Use direct streamUrl if available (e.g. from JioSaavn)
+      let streamUrl = track.streamUrl || "";
+      
+      if (!streamUrl) {
+        // Fallback: Fetch streaming URL from Invidious
+        let attempts = 0;
+        let videoId = track.id; // Search query matches videoId or we look it up
 
-      while (attempts < INVIDIOUS_INSTANCES.length) {
-        const instance = getActiveInstance();
-        try {
-          if (!videoId.startsWith("yt_") && videoId.length !== 11) {
-            // Need to lookup videoId first
-            const query = encodeURIComponent(`${track.name} ${track.artists[0]?.name || ""} audio`);
-            const searchRes = await fetch(`${instance}/api/v1/search?q=${query}&type=video`);
-            if (!searchRes.ok) throw new Error("Search query failed");
-            const searchData = await searchRes.json();
-            if (searchData.length === 0) throw new Error("No video results");
-            videoId = searchData[0].videoId;
+        while (attempts < INVIDIOUS_INSTANCES.length) {
+          const instance = getActiveInstance();
+          try {
+            if (!videoId.startsWith("yt_") && videoId.length !== 11) {
+              // Need to lookup videoId first
+              const query = encodeURIComponent(`${track.name} ${track.artists[0]?.name || ""} audio`);
+              const searchRes = await fetchWithTimeout(`${instance}/api/v1/search?q=${query}&type=video`, { timeout: 3000 });
+              if (!searchRes.ok) throw new Error("Search query failed");
+              const searchData = await searchRes.json();
+              if (searchData.length === 0) throw new Error("No video results");
+              videoId = searchData[0].videoId;
+            }
+
+            streamUrl = `${instance}/latest_version?id=${videoId}&itag=140&local=true`;
+            
+            // Test fetch with a HEAD request to see if stream link is valid
+            const headRes = await fetchWithTimeout(streamUrl, { method: "HEAD", timeout: 3000 });
+            if (!headRes.ok) throw new Error("Stream invalid");
+            break;
+          } catch (err) {
+            console.warn(`Instance failed during playback resolver: ${instance}`);
+            rotateInstance();
+            attempts++;
           }
-
-          streamUrl = `${instance}/latest_version?id=${videoId}&itag=140&local=true`;
-          
-          // Test fetch to see if stream link is valid
-          const headRes = await fetch(streamUrl, { method: "HEAD" });
-          if (!headRes.ok) throw new Error("Stream invalid");
-          break;
-        } catch (err) {
-          console.warn(`Instance failed during playback resolver: ${instance}`);
-          rotateInstance();
-          attempts++;
         }
       }
 
@@ -307,7 +331,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await savePlaylists(updated);
   };
 
-  // Free Search Implementation via Invidious
+  // Free Search Implementation via JioSaavn & Invidious Fallback
   const performSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -315,18 +339,62 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setIsSearching(true);
+
+    // 1. Try JioSaavn API first (fast, direct CDN high-quality audio streams)
+    try {
+      const url = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Saavn search request failed");
+      const json = await res.json();
+
+      if (json.success && json.data?.results?.length > 0) {
+        const normalized: Track[] = json.data.results.map((item: any) => {
+          const streams = item.downloadUrl || [];
+          const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
+                             streams.find((s: any) => s.quality === "160kbps") || 
+                             streams[streams.length - 1] || 
+                             { url: "" };
+
+          const images = item.image || [];
+          const bestImage = images.find((img: any) => img.quality === "500x500") || 
+                            images.find((img: any) => img.quality === "150x150") || 
+                            images[images.length - 1] || 
+                            { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
+
+          return {
+            id: `saavn_${item.id}`,
+            name: item.name,
+            artists: item.artists?.primary?.length > 0 
+              ? item.artists.primary.map((a: any) => ({ name: a.name })) 
+              : [{ name: item.label || "Unknown Artist" }],
+            album: {
+              name: item.album?.name || "JioSaavn",
+              images: [{ url: bestImage.url }]
+            },
+            duration_ms: (item.duration || 180) * 1000,
+            streamUrl: bestStream.url
+          };
+        });
+
+        setSearchResults(normalized);
+        setIsSearching(false);
+        return;
+      }
+    } catch (err) {
+      console.warn("Saavn search failed, falling back to Invidious search:", err);
+    }
+
+    // 2. Fallback: Search via public Invidious instances with a 3-second timeout guard
     let attempts = 0;
-    
     while (attempts < INVIDIOUS_INSTANCES.length) {
       const instance = getActiveInstance();
       try {
         const url = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
-        const res = await fetch(url);
+        const res = await fetchWithTimeout(url, { timeout: 3000 });
         if (!res.ok) throw new Error("Search request failed");
         
         const data = await res.json();
         
-        // Map Invidious JSON results into standard Track formatting
         const normalized: Track[] = data.map((item: any) => ({
           id: item.videoId,
           name: item.title,
