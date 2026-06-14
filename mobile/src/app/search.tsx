@@ -17,6 +17,8 @@ import { useAudio, Track } from "@/context/AudioContext";
 import { LinearGradient } from "expo-linear-gradient";
 import PlayerView from "@/components/PlayerView";
 
+const { width } = Dimensions.get("window");
+
 const CATEGORIES = [
   { name: "Pop", color: ["#d946ef", "#8b5cf6"], query: "pop hits 2026" },
   { name: "Hip-Hop", color: ["#ef4444", "#f97316"], query: "hip hop rap" },
