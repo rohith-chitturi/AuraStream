@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Play, Pause, SkipForward, Heart } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudio } from "@/context/AudioContext";
 import PlayerView from "./PlayerView";
 
@@ -18,6 +19,7 @@ export default function MiniPlayer() {
   const { currentTrack, isPlaying, isLoading, progress, duration, togglePlay, playNext } = useAudio();
   const [playerVisible, setPlayerVisible] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const insets = useSafeAreaInsets();
 
   if (!currentTrack) return null;
 
@@ -28,7 +30,7 @@ export default function MiniPlayer() {
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => setPlayerVisible(true)}
-        style={styles.container}
+        style={[styles.container, { bottom: Math.max(12, insets.bottom + 60) }]}
       >
         {/* Progress Bar Line */}
         <View style={styles.progressBarContainer}>
@@ -86,7 +88,6 @@ export default function MiniPlayer() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 64, // Just above the tab bar
     left: 8,
     right: 8,
     backgroundColor: "rgba(18, 18, 18, 0.95)",

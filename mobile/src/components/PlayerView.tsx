@@ -63,6 +63,9 @@ const getMockLyrics = (title: string, durationSec: number) => {
 };
 
 export default function PlayerView({ visible, onClose }: PlayerViewProps) {
+  const isSmallScreen = height < 750;
+  const artSize = isSmallScreen ? 180 : Math.min(width - 64, 320);
+
   const {
     currentTrack,
     isPlaying,
@@ -237,22 +240,22 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
             </View>
           ) : (
             /* Normal Player View Details */
-            <View style={styles.playerDetailsContainer}>
+            <View style={[styles.playerDetailsContainer, isSmallScreen && { paddingHorizontal: 20 }]}>
               {/* Cover Art Wrapper */}
-              <View style={styles.artContainer}>
+              <View style={[styles.artContainer, isSmallScreen && { marginVertical: 8 }]}>
                 <Image
                   source={{ uri: currentTrack.album.images[0]?.url }}
-                  style={styles.albumArt}
+                  style={[styles.albumArt, { width: artSize, height: artSize }]}
                 />
               </View>
 
               {/* Title & Artist */}
-              <View style={styles.titleContainer}>
+              <View style={[styles.titleContainer, isSmallScreen && { marginBottom: 8 }]}>
                 <View style={styles.metaInfo}>
-                  <Text style={styles.trackName} numberOfLines={1}>
+                  <Text style={[styles.trackName, isSmallScreen && { fontSize: 18 }]} numberOfLines={1}>
                     {currentTrack.name}
                   </Text>
-                  <Text style={styles.artistName} numberOfLines={1}>
+                  <Text style={[styles.artistName, isSmallScreen && { fontSize: 13 }]} numberOfLines={1}>
                     {currentTrack.artists.map((a) => a.name).join(", ")}
                   </Text>
                 </View>
@@ -260,13 +263,13 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
                   <Heart
                     color={isLiked ? "#1db954" : "#ffffff"}
                     fill={isLiked ? "#1db954" : "transparent"}
-                    size={26}
+                    size={24}
                   />
                 </TouchableOpacity>
               </View>
 
               {/* Progress Slider (Interactive scrubber) */}
-              <View style={styles.progressSection}>
+              <View style={[styles.progressSection, isSmallScreen && { marginBottom: 10 }]}>
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={handleProgressBarPress}
@@ -294,37 +297,37 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
               </View>
 
               {/* Controls */}
-              <View style={styles.controlsRow}>
+              <View style={[styles.controlsRow, isSmallScreen && { marginBottom: 10 }]}>
                 <TouchableOpacity onPress={() => setIsShuffle(!isShuffle)}>
-                  <Shuffle color={isShuffle ? "#1db954" : "#b3b3b3"} size={22} />
+                  <Shuffle color={isShuffle ? "#1db954" : "#b3b3b3"} size={20} />
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={playPrevious}>
-                  <SkipBack color="#ffffff" size={36} fill="#ffffff" />
+                  <SkipBack color="#ffffff" size={30} fill="#ffffff" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={togglePlay}
-                  style={styles.playPauseContainer}
+                  style={[styles.playPauseContainer, isSmallScreen && { width: 56, height: 56, borderRadius: 28 }]}
                 >
                   {isPlaying ? (
-                    <Pause color="#000000" size={32} fill="#000000" />
+                    <Pause color="#000000" size={26} fill="#000000" />
                   ) : (
-                    <Play color="#000000" size={32} fill="#000000" />
+                    <Play color="#000000" size={26} fill="#000000" />
                   )}
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={playNext}>
-                  <SkipForward color="#ffffff" size={36} fill="#ffffff" />
+                  <SkipForward color="#ffffff" size={30} fill="#ffffff" />
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => setIsRepeat(!isRepeat)}>
-                  <Repeat color={isRepeat ? "#1db954" : "#b3b3b3"} size={22} />
+                  <Repeat color={isRepeat ? "#1db954" : "#b3b3b3"} size={20} />
                 </TouchableOpacity>
               </View>
 
               {/* Lyrics Panel */}
-              <View style={styles.lyricsContainer}>
+              <View style={[styles.lyricsContainer, { flex: isSmallScreen ? 0.4 : 0.8 }, isSmallScreen && { marginBottom: 10 }]}>
                 <Text style={styles.lyricsLabel}>Lyrics</Text>
                 <ScrollView
                   ref={lyricsScrollViewRef}
@@ -354,7 +357,7 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
                 <TouchableOpacity onPress={() => setShowPlaylistPicker(true)}>
                   <ListMusic color="#b3b3b3" size={20} />
                 </TouchableOpacity>
-                <Text style={styles.streamProvider}>Guest Streaming (Invidious)</Text>
+                <Text style={styles.streamProvider}>Guest Streaming (Saavn CDN)</Text>
                 <Volume2 color="#b3b3b3" size={20} />
               </View>
             </View>
@@ -505,8 +508,6 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   albumArt: {
-    width: width - 64,
-    height: width - 64,
     maxWidth: 340,
     maxHeight: 340,
     borderRadius: 12,
