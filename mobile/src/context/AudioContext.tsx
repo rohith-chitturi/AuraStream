@@ -36,11 +36,11 @@ interface AudioContextProps {
   isSearching: boolean;
   user: { username: string; email: string } | null;
   setSearchQuery: (query: string) => void;
-  playTrack: (track: Track, newQueue?: Track[], index?: number) => Promise<void>;
+  playTrack: (track: Track, newQueue?: Track[], index?: number, shouldBroadcast?: boolean) => Promise<void>;
   togglePlay: () => Promise<void>;
   playNext: () => Promise<void>;
   playPrevious: () => Promise<void>;
-  seekTo: (seconds: number) => Promise<void>;
+  seekTo: (seconds: number, shouldBroadcast?: boolean) => Promise<void>;
   createPlaylist: (name: string, initialTrack?: Track) => Promise<void>;
   deletePlaylist: (id: string) => Promise<void>;
   addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>;
@@ -51,6 +51,12 @@ interface AudioContextProps {
   register: (username: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   addToQueue: (track: Track) => void;
+  roomId: string | null;
+  roomUsers: string[];
+  isHost: boolean;
+  createRoom: () => void;
+  joinRoom: (code: string) => void;
+  leaveRoom: () => void;
 }
 
 const AudioContext = createContext<AudioContextProps | undefined>(undefined);

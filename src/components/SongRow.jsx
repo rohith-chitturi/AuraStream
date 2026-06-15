@@ -1,6 +1,6 @@
 import React from "react";
 import { useSpotify } from "../SpotifyContext";
-import { Play, Volume2 } from "lucide-react";
+import { Play, Volume2, ListPlus } from "lucide-react";
 import "./SongRow.css";
 
 // Helper to convert milliseconds to MM:SS format
@@ -13,7 +13,7 @@ export const formatDuration = (ms) => {
 };
 
 const SongRow = ({ track, index, queue = [] }) => {
-  const { playTrack, currentTrack, isPlaying, togglePlay } = useSpotify();
+  const { playTrack, currentTrack, isPlaying, togglePlay, addToQueue } = useSpotify();
 
   const isCurrentTrack = currentTrack?.id === track.id;
 
@@ -63,6 +63,19 @@ const SongRow = ({ track, index, queue = [] }) => {
 
       <div className="song-row-album hide-mobile ellipsis">
         {track.album?.name || ""}
+      </div>
+
+      <div className="song-row-actions">
+        <button
+          className="song-row-action-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            addToQueue(track);
+          }}
+          title="Add to queue"
+        >
+          <ListPlus size={16} />
+        </button>
       </div>
 
       <div className="song-row-duration">

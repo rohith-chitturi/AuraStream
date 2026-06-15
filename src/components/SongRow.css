@@ -138,3 +138,44 @@
     font-size: 12px;
   }
 }
+
+.song-row-actions {
+  display: flex;
+  align-items: center;
+  margin-right: 16px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.song-row:hover .song-row-actions {
+  opacity: 1;
+}
+
+.song-row-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 50%;
+  transition: color 0.2s ease, transform 0.1s ease;
+}
+
+.song-row-action-btn:hover {
+  color: var(--text-primary);
+  transform: scale(1.1);
+}
+
+.song-row-action-btn:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 768px) {
+  .song-row-actions {
+    opacity: 1;
+    margin-right: 8px;
+  }
+}
