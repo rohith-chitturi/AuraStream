@@ -62,7 +62,7 @@ export default function MiniPlayer() {
               />
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={togglePlay} style={styles.controlButton}>
+            <TouchableOpacity onPress={() => togglePlay()} style={styles.controlButton}>
               {isLoading ? (
                 <ActivityIndicator size="small" color="#1db954" />
               ) : isPlaying ? (

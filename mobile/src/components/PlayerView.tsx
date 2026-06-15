@@ -308,7 +308,7 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={togglePlay}
+                  onPress={() => togglePlay()}
                   style={[styles.playPauseContainer, isSmallScreen && { width: 56, height: 56, borderRadius: 28 }]}
                 >
                   {isPlaying ? (
