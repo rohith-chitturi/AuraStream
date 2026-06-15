@@ -425,6 +425,15 @@ export const SpotifyProvider = ({ children }) => {
     localStorage.setItem("spotify_client_id", id.trim());
   };
 
+  const addToQueue = (track) => {
+    const updatedQueue = [...queue, track];
+    setQueue(updatedQueue);
+    if (queue.length === 0 || queueIndex === -1) {
+      setQueueIndex(0);
+      playTrack(track, updatedQueue, 0);
+    }
+  };
+
   return (
     <SpotifyContext.Provider
       value={{
@@ -463,7 +472,8 @@ export const SpotifyProvider = ({ children }) => {
         seekTo,
         changeVolume,
         logout,
-        updateClientId
+        updateClientId,
+        addToQueue
       }}
     >
       {children}

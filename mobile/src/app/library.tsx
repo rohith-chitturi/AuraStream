@@ -10,9 +10,12 @@ import {
   Image,
   Dimensions,
   ScrollView,
+  Platform,
+  ToastAndroid,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Plus, FolderPlus, Trash2, ChevronLeft, Play, Music, ArrowRight, LogOut } from "lucide-react-native";
+import { Plus, FolderPlus, Trash2, ChevronLeft, Play, Music, ArrowRight, LogOut, ListPlus } from "lucide-react-native";
 import { useAudio, Playlist, Track } from "@/context/AudioContext";
 
 const { width } = Dimensions.get("window");
@@ -27,12 +30,22 @@ export default function LibraryScreen() {
     user,
     logout,
     guestMode,
+    addToQueue,
   } = useAudio();
 
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
+
+  const handleAddToQueue = (track: Track) => {
+    addToQueue(track);
+    if (Platform.OS === "android") {
+      ToastAndroid.show("Added to queue", ToastAndroid.SHORT);
+    } else {
+      Alert.alert("Added to queue", `"${track.name}" added to queue.`);
+    }
+  };
 
   const handleCreatePlaylist = async () => {
     if (!newPlaylistName.trim()) return;
@@ -142,14 +155,23 @@ export default function LibraryScreen() {
                     </View>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={() =>
-                      removeTrackFromPlaylist(currentActivePlaylist.id, item.id)
-                    }
-                    style={styles.songRemove}
-                  >
-                    <Trash2 color="#b3b3b3" size={18} />
-                  </TouchableOpacity>
+                  <View style={styles.songActions}>
+                    <TouchableOpacity
+                      onPress={() => handleAddToQueue(item)}
+                      style={styles.songActionBtn}
+                    >
+                      <ListPlus color="#b3b3b3" size={18} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() =>
+                        removeTrackFromPlaylist(currentActivePlaylist.id, item.id)
+                      }
+                      style={styles.songActionBtn}
+                    >
+                      <Trash2 color="#b3b3b3" size={18} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
             />
@@ -808,5 +830,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     fontSize: 13,
     letterSpacing: 1,
+  },
+  songActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  songActionBtn: {
+    padding: 8,
   },
 });
