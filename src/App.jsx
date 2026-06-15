@@ -7,6 +7,7 @@ import Login from "./views/Login";
 import Home from "./views/Home";
 import Search from "./views/Search";
 import Playlist from "./views/Playlist";
+import Room from "./views/Room";
 import "./App.css";
 
 const AppContent = () => {
@@ -122,6 +123,8 @@ const AppContent = () => {
       case "playlist":
       case "album":
         return <Playlist />;
+      case "room":
+        return <Room />;
       default:
         return <Home />;
     }

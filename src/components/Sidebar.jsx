@@ -1,6 +1,6 @@
 import React from "react";
 import { useSpotify } from "../SpotifyContext";
-import { Home, Search, Library, LogOut, Music } from "lucide-react";
+import { Home, Search, Library, LogOut, Music, Users } from "lucide-react";
 import "./Sidebar.css";
 
 const Sidebar = () => {
@@ -41,6 +41,13 @@ const Sidebar = () => {
           >
             <Search size={22} />
             <span>Search</span>
+          </button>
+          <button
+            className={`nav-link-btn ${view === "room" ? "active" : ""}`}
+            onClick={() => navigateTo("room")}
+          >
+            <Users size={22} />
+            <span>Listening Room</span>
           </button>
         </nav>
 
@@ -107,6 +114,13 @@ const Sidebar = () => {
         >
           <Library size={24} />
           <span>Library</span>
+        </button>
+        <button
+          className={`mobile-nav-btn ${view === "room" ? "active" : ""}`}
+          onClick={() => navigateTo("room")}
+        >
+          <Users size={24} />
+          <span>Room</span>
         </button>
         <button className="mobile-nav-btn" onClick={logout}>
           <LogOut size={24} />
