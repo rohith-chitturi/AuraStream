@@ -9,8 +9,11 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
+  Platform,
+  ToastAndroid,
+  Alert,
 } from "react-native";
-import { Search, X, Play, Plus, Music } from "lucide-react-native";
+import { Search, X, Play, Plus, Music, ListPlus } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudio, Track } from "@/context/AudioContext";
 import { LinearGradient } from "expo-linear-gradient";
@@ -37,6 +40,8 @@ export default function SearchScreen() {
     playTrack,
     playlists,
     addTrackToPlaylist,
+    addToQueue,
+    createPlaylist,
   } = useAudio();
 
   const [inputVal, setInputVal] = useState(searchQuery);
@@ -45,6 +50,8 @@ export default function SearchScreen() {
   const [isSearchingAlbums, setIsSearchingAlbums] = useState(false);
   const [loadingAlbumId, setLoadingAlbumId] = useState<string | null>(null);
   const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<Track | null>(null);
+  const [inlinePlaylistName, setInlinePlaylistName] = useState("");
+  const [isCreatingInline, setIsCreatingInline] = useState(false);
 
   // Trigger search when input query or mode shifts
   useEffect(() => {
@@ -156,6 +163,15 @@ export default function SearchScreen() {
     setAlbumResults([]);
   };
 
+  const handleAddToQueue = (track: Track) => {
+    addToQueue(track);
+    if (Platform.OS === "android") {
+      ToastAndroid.show("Added to queue", ToastAndroid.SHORT);
+    } else {
+      Alert.alert("Added to queue", `"${track.name}" added to queue.`);
+    }
+  };
+
   const selectCategory = (query: string) => {
     setSearchMode("songs");
     setInputVal(query);
@@ -181,14 +197,21 @@ export default function SearchScreen() {
         </View>
       </TouchableOpacity>
 
-      {playlists.length > 0 && (
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          onPress={() => handleAddToQueue(item)}
+          style={styles.addQueueButton}
+        >
+          <ListPlus color="#b3b3b3" size={20} />
+        </TouchableOpacity>
+
         <TouchableOpacity
           onPress={() => setSelectedTrackForPlaylist(item)}
           style={styles.addPlaylistButton}
         >
           <Plus color="#b3b3b3" size={20} />
         </TouchableOpacity>
-      )}
+      </View>
     </View>
   );
 
@@ -331,31 +354,102 @@ export default function SearchScreen() {
             <Text style={styles.dialogSub} numberOfLines={1}>
               "{selectedTrackForPlaylist.name}"
             </Text>
-            <FlatList
-              data={playlists}
-              keyExtractor={(p) => p.id}
-              style={{ maxHeight: 200, marginVertical: 12 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.dialogPlaylistItem}
-                  onPress={() => {
-                    addTrackToPlaylist(item.id, selectedTrackForPlaylist);
-                    setSelectedTrackForPlaylist(null);
-                  }}
-                >
-                  <Text style={styles.dialogPlaylistName}>{item.name}</Text>
-                  <Text style={styles.dialogPlaylistCount}>
-                    {item.tracks.length} {item.tracks.length === 1 ? "song" : "songs"}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            />
-            <TouchableOpacity
-              onPress={() => setSelectedTrackForPlaylist(null)}
-              style={styles.dialogCancel}
-            >
-              <Text style={styles.dialogCancelText}>Cancel</Text>
-            </TouchableOpacity>
+
+            {/* Inline Playlist Creator */}
+            {isCreatingInline ? (
+              <View style={styles.inlineCreator}>
+                <TextInput
+                  style={styles.dialogInput}
+                  placeholder="New Playlist Name"
+                  placeholderTextColor="#777"
+                  value={inlinePlaylistName}
+                  onChangeText={setInlinePlaylistName}
+                  autoFocus
+                  maxLength={32}
+                />
+                <View style={styles.inlineCreatorButtons}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setInlinePlaylistName("");
+                      setIsCreatingInline(false);
+                    }}
+                    style={[styles.inlineBtn, styles.inlineBtnCancel]}
+                  >
+                    <Text style={styles.inlineBtnCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      if (!inlinePlaylistName.trim()) return;
+                      await createPlaylist(inlinePlaylistName.trim(), selectedTrackForPlaylist);
+                      setInlinePlaylistName("");
+                      setIsCreatingInline(false);
+                      setSelectedTrackForPlaylist(null);
+                      if (Platform.OS === "android") {
+                        ToastAndroid.show("Playlist created & song added", ToastAndroid.SHORT);
+                      }
+                    }}
+                    style={[styles.inlineBtn, styles.inlineBtnCreate]}
+                  >
+                    <Text style={styles.inlineBtnCreateText}>Create & Add</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <>
+                {playlists.length === 0 ? (
+                  <View style={styles.dialogEmpty}>
+                    <Text style={styles.dialogEmptyText}>You don't have any playlists yet.</Text>
+                    <TouchableOpacity
+                      onPress={() => setIsCreatingInline(true)}
+                      style={styles.createInlineBtn}
+                    >
+                      <Text style={styles.createInlineBtnText}>Create New Playlist</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => setIsCreatingInline(true)}
+                      style={styles.dialogCreateLink}
+                    >
+                      <Text style={styles.dialogCreateLinkText}>+ Create New Playlist</Text>
+                    </TouchableOpacity>
+
+                    <FlatList
+                      data={playlists}
+                      keyExtractor={(p) => p.id}
+                      style={{ maxHeight: 180, marginVertical: 8 }}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.dialogPlaylistItem}
+                          onPress={() => {
+                            addTrackToPlaylist(item.id, selectedTrackForPlaylist);
+                            setSelectedTrackForPlaylist(null);
+                            if (Platform.OS === "android") {
+                              ToastAndroid.show(`Added to ${item.name}`, ToastAndroid.SHORT);
+                            }
+                          }}
+                        >
+                          <Text style={styles.dialogPlaylistName}>{item.name}</Text>
+                          <Text style={styles.dialogPlaylistCount}>
+                            {item.tracks.length} {item.tracks.length === 1 ? "song" : "songs"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {!isCreatingInline && (
+              <TouchableOpacity
+                onPress={() => setSelectedTrackForPlaylist(null)}
+                style={styles.dialogCancel}
+              >
+                <Text style={styles.dialogCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -579,5 +673,84 @@ const styles = StyleSheet.create({
     color: "#ef4444",
     fontWeight: "700",
     fontSize: 14,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  addQueueButton: {
+    padding: 10,
+    marginRight: 2,
+  },
+  dialogInput: {
+    backgroundColor: "#2c2c2e",
+    color: "#ffffff",
+    fontSize: 14,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginVertical: 12,
+  },
+  inlineCreator: {
+    marginVertical: 8,
+  },
+  inlineCreatorButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  inlineBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  inlineBtnCancel: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  inlineBtnCancelText: {
+    color: "#ffffff",
+    fontWeight: "600",
+  },
+  inlineBtnCreate: {
+    backgroundColor: "#1db954",
+  },
+  inlineBtnCreateText: {
+    color: "#000000",
+    fontWeight: "700",
+  },
+  dialogEmpty: {
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  dialogEmptyText: {
+    color: "#b3b3b3",
+    fontSize: 13,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  createInlineBtn: {
+    backgroundColor: "#ffffff",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  createInlineBtnText: {
+    color: "#000000",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  dialogCreateLink: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  dialogCreateLinkText: {
+    color: "#1db954",
+    fontWeight: "700",
+    fontSize: 13,
   },
 });
