@@ -12,8 +12,10 @@ import {
   Platform,
   ToastAndroid,
   Alert,
+  Modal,
+  ScrollView,
 } from "react-native";
-import { Search, X, Play, Plus, Music, ListPlus } from "lucide-react-native";
+import { Search, X, Play, Plus, Music, ListPlus, ChevronLeft } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudio, Track } from "@/context/AudioContext";
 import { LinearGradient } from "expo-linear-gradient";
@@ -52,6 +54,10 @@ export default function SearchScreen() {
   const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<Track | null>(null);
   const [inlinePlaylistName, setInlinePlaylistName] = useState("");
   const [isCreatingInline, setIsCreatingInline] = useState(false);
+
+  const [selectedAlbum, setSelectedAlbum] = useState<any | null>(null);
+  const [selectedAlbumTracks, setSelectedAlbumTracks] = useState<Track[]>([]);
+  const [loadingAlbumDetails, setLoadingAlbumDetails] = useState(false);
 
   // Trigger search when input query or mode shifts
   useEffect(() => {
@@ -152,10 +158,77 @@ export default function SearchScreen() {
       }
     } catch (e) {
       console.error("Failed to load album tracks:", e);
-    } finally {
-      setLoadingAlbumId(null);
-    }
-  };
+      } finally {
+        setLoadingAlbumId(null);
+      }
+    };
+
+    const handleViewAlbum = async (album: any) => {
+      const albumArtist = album.artists?.primary?.[0]?.name || "Various Artists";
+      const images = album.image || [];
+      const albumImage = images[images.length - 1]?.url || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300";
+
+      setSelectedAlbum({
+        id: album.id,
+        name: album.name,
+        artist: albumArtist,
+        image: albumImage,
+        year: album.year || ""
+      });
+      setLoadingAlbumDetails(true);
+      setSelectedAlbumTracks([]);
+
+      try {
+        let json;
+        try {
+          const res = await fetch(`https://saavn.dev/api/albums?id=${album.id}`);
+          if (res.ok) json = await res.json();
+        } catch (e) {
+          console.warn("saavn.dev album details failed, trying backup");
+        }
+
+        if (!json || !json.success) {
+          const res = await fetch(`https://saavn.sumit.co/api/albums?id=${album.id}`);
+          if (res.ok) json = await res.json();
+        }
+
+        if (json && json.success && json.data?.songs?.length > 0) {
+          const tracks: Track[] = json.data.songs.map((song: any) => {
+            const streams = song.downloadUrl || [];
+            const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
+                               streams.find((s: any) => s.quality === "160kbps") || 
+                               streams[streams.length - 1] || 
+                               { url: "" };
+
+            const images = song.image || [];
+            const bestImage = images.find((img: any) => img.quality === "500x500") || 
+                              images.find((img: any) => img.quality === "150x150") || 
+                              images[images.length - 1] || 
+                              { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
+
+            return {
+              id: `saavn_${song.id}`,
+              name: song.name,
+              artists: song.artists?.primary?.length > 0 
+                ? song.artists.primary.map((a: any) => ({ name: a.name })) 
+                : [{ name: song.label || "Unknown Artist" }],
+              album: {
+                name: album.name,
+                images: [{ url: bestImage.url }]
+              },
+              duration_ms: (song.duration || 180) * 1000,
+              streamUrl: bestStream.url
+            };
+          });
+          setSelectedAlbumTracks(tracks);
+        }
+      } catch (e) {
+        console.error("Failed to load album tracks details:", e);
+        Alert.alert("Error", "Could not load album tracks.");
+      } finally {
+        setLoadingAlbumDetails(false);
+      }
+    };
 
   const handleClear = () => {
     setInputVal("");
@@ -224,8 +297,8 @@ export default function SearchScreen() {
       <View style={styles.trackItem}>
         <TouchableOpacity
           style={styles.trackPressable}
-          onPress={() => handlePlayAlbum(item.id, item.name)}
-          disabled={loadingAlbumId !== null}
+          onPress={() => handleViewAlbum(item)}
+          disabled={loadingAlbumDetails}
         >
           <Image source={{ uri: albumImage }} style={styles.trackArt} />
           <View style={styles.trackMeta}>
@@ -236,7 +309,7 @@ export default function SearchScreen() {
               Movie/Album • {albumArtist} • {item.year || ""}
             </Text>
           </View>
-          {loadingAlbumId === item.id ? (
+          {selectedAlbum?.id === item.id && loadingAlbumDetails ? (
             <ActivityIndicator size="small" color="#1db954" style={{ marginRight: 8 }} />
           ) : (
             <View style={styles.playIconContainer}>
@@ -453,6 +526,94 @@ export default function SearchScreen() {
           </View>
         </View>
       )}
+
+      {/* Album Songs Detail Modal */}
+      <Modal
+        visible={selectedAlbum !== null}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setSelectedAlbum(null)}
+      >
+        <LinearGradient
+          colors={["#0d1117", "#000000"]}
+          style={[styles.modalContainer, { paddingTop: insets.top }]}
+        >
+          {/* Modal Header */}
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setSelectedAlbum(null)} style={styles.modalBackButton}>
+              <ChevronLeft color="#ffffff" size={24} />
+              <Text style={styles.modalBackText}>Back to Search</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loadingAlbumDetails ? (
+            <View style={styles.modalLoading}>
+              <ActivityIndicator size="large" color="#1db954" />
+              <Text style={styles.modalLoadingText}>Loading album tracks...</Text>
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={styles.modalScrollContent}>
+              {selectedAlbum && (
+                <View style={styles.modalHero}>
+                  <Image source={{ uri: selectedAlbum.image }} style={styles.modalHeroArt} />
+                  <Text style={styles.modalHeroTitle}>{selectedAlbum.name}</Text>
+                  <Text style={styles.modalHeroSubtitle}>
+                    {selectedAlbum.artist} • {selectedAlbum.year}
+                  </Text>
+                  <Text style={styles.modalHeroCount}>
+                    {selectedAlbumTracks.length} {selectedAlbumTracks.length === 1 ? "song" : "songs"}
+                  </Text>
+                </View>
+              )}
+
+              {/* Tracks List */}
+              <View style={styles.modalSongsList}>
+                {selectedAlbumTracks.map((item, index) => (
+                  <View key={item.id} style={styles.modalSongRow}>
+                    <TouchableOpacity
+                      style={styles.modalSongPressable}
+                      onPress={() => {
+                        playTrack(item, selectedAlbumTracks, index);
+                        setSelectedAlbum(null); // Close modal when track starts playing
+                      }}
+                    >
+                      <View style={styles.modalSongIndexContainer}>
+                        <Text style={styles.modalSongIndex}>{index + 1}</Text>
+                      </View>
+                      <View style={styles.modalSongMeta}>
+                        <Text style={styles.modalSongTitle} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.modalSongArtist} numberOfLines={1}>
+                          {item.artists.map((a) => a.name).join(", ")}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    <View style={styles.modalSongActions}>
+                      <TouchableOpacity
+                        onPress={() => handleAddToQueue(item)}
+                        style={styles.modalSongBtn}
+                      >
+                        <ListPlus color="#b3b3b3" size={20} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedTrackForPlaylist(item);
+                        }}
+                        style={styles.modalSongBtn}
+                      >
+                        <Plus color="#b3b3b3" size={20} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+        </LinearGradient>
+      </Modal>
     </View>
   );
 }
@@ -752,5 +913,119 @@ const styles = StyleSheet.create({
     color: "#1db954",
     fontWeight: "700",
     fontSize: 13,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#000000",
+  },
+  modalHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.05)",
+  },
+  modalBackButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalBackText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalLoading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+  },
+  modalLoadingText: {
+    color: "#b3b3b3",
+    fontSize: 14,
+  },
+  modalScrollContent: {
+    paddingBottom: 100,
+  },
+  modalHero: {
+    alignItems: "center",
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+  },
+  modalHeroArt: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+  },
+  modalHeroTitle: {
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  modalHeroSubtitle: {
+    color: "#b3b3b3",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  modalHeroCount: {
+    color: "#1db954",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  modalSongsList: {
+    paddingHorizontal: 16,
+  },
+  modalSongRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.03)",
+  },
+  modalSongPressable: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  modalSongIndexContainer: {
+    width: 32,
+    alignItems: "center",
+  },
+  modalSongIndex: {
+    color: "#b3b3b3",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  modalSongMeta: {
+    flex: 1,
+    marginLeft: 8,
+  },
+  modalSongTitle: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  modalSongArtist: {
+    color: "#b3b3b3",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  modalSongActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalSongBtn: {
+    padding: 8,
   },
 });
