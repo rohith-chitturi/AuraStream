@@ -188,7 +188,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Resolve media stream URL and play using expo-av
-  const playTrack = async (track: Track, newQueue: Track[] = [], index = -1) => {
+  const playTrack = async (track: Track, newQueue: Track[] = [], index = -1, shouldBroadcast = true) => {
     setPlaybackError(null);
     setIsLoading(true);
     setIsPlaying(false);
@@ -197,6 +197,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (newQueue.length > 0) {
       setQueue(newQueue);
       setQueueIndex(index !== -1 ? index : newQueue.findIndex((t) => t.id === track.id));
+    }
+
+    if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: "play",
+        track,
+        isPlaying: true,
+        progress: 0,
+        timestamp: Date.now()
+      }));
     }
 
     try {
@@ -271,9 +281,24 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isPlaying) {
         await soundRef.current.pauseAsync();
         setIsPlaying(false);
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            action: "pause",
+            timestamp: Date.now()
+          }));
+        }
       } else {
         await soundRef.current.playAsync();
         setIsPlaying(true);
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            action: "play",
+            track: currentTrack,
+            isPlaying: true,
+            progress: progress,
+            timestamp: Date.now()
+          }));
+        }
       }
     } catch (e) {
       console.error("Toggle play failed:", e);
@@ -296,13 +321,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await playTrack(queue[prevIndex], queue, prevIndex);
   };
 
-  const seekTo = async (seconds: number) => {
+  const seekTo = async (seconds: number, shouldBroadcast = true) => {
     if (!soundRef.current) return;
     try {
       isSeeking.current = true;
       setProgress(seconds);
       await soundRef.current.setPositionAsync(seconds * 1000);
       isSeeking.current = false;
+
+      if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          action: "seek",
+          progress: seconds,
+          timestamp: Date.now()
+        }));
+      }
     } catch (e) {
       console.error("Seek failed:", e);
       isSeeking.current = false;
