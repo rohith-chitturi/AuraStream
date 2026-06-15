@@ -5,7 +5,7 @@ import { View, useColorScheme } from 'react-native';
 import { AudioProvider, useAudio } from '@/context/AudioContext';
 import MiniPlayer from '@/components/MiniPlayer';
 import AuthScreen from '@/components/AuthScreen';
-import { Home, Search, Library } from 'lucide-react-native';
+import { Home, Search, Library, Users } from 'lucide-react-native';
 
 export default function RootLayout() {
   return (
@@ -60,6 +60,13 @@ function RootLayoutContent() {
           options={{ 
             title: 'Your Library',
             tabBarIcon: ({ color, size }) => <Library color={color} size={size - 2} />
+          }} 
+        />
+        <Tabs.Screen 
+          name="room" 
+          options={{ 
+            title: 'Room',
+            tabBarIcon: ({ color, size }) => <Users color={color} size={size - 2} />
           }} 
         />
       </Tabs>

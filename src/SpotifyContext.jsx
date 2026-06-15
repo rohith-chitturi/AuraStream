@@ -50,6 +50,22 @@ export const SpotifyProvider = ({ children }) => {
   // HTML5 Audio Reference
   const audioRef = useRef(new Audio());
 
+  // Group Listening Room states
+  const [roomId, setRoomId] = useState(null);
+  const [roomUsers, setRoomUsers] = useState([]);
+  const [isHost, setIsHost] = useState(false);
+  const wsRef = useRef(null);
+
+  const currentTrackRef = useRef(null);
+  const isPlayingRef = useRef(false);
+  const progressRef = useRef(0);
+  const userRef = useRef(null);
+
+  useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { progressRef.current = progress; }, [progress]);
+  useEffect(() => { userRef.current = user; }, [user]);
+
   // Set initial volume
   useEffect(() => {
     audioRef.current.volume = volume;
@@ -318,7 +334,7 @@ export const SpotifyProvider = ({ children }) => {
   }, [queue, queueIndex]);
 
   // Play a specific track
-  const playTrack = async (track, newQueue = [], index = -1) => {
+  const playTrack = async (track, newQueue = [], index = -1, shouldBroadcast = true) => {
     if (!track) return;
     
     setPlaybackError(null);
@@ -329,6 +345,16 @@ export const SpotifyProvider = ({ children }) => {
     if (newQueue.length > 0) {
       setQueue(newQueue);
       setQueueIndex(index !== -1 ? index : newQueue.findIndex((t) => t.id === track.id));
+    }
+
+    if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: "play",
+        track,
+        isPlaying: true,
+        progress: 0,
+        timestamp: Date.now()
+      }));
     }
 
     try {
@@ -359,18 +385,35 @@ export const SpotifyProvider = ({ children }) => {
   };
 
   // Toggle Play / Pause
-  const togglePlay = () => {
+  const togglePlay = (shouldBroadcast = true) => {
     if (!currentTrack) return;
     
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
+      if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          action: "pause",
+          timestamp: Date.now()
+        }));
+      }
     } else {
       audioRef.current.play()
-        .then(() => setIsPlaying(true))
+        .then(() => {
+          setIsPlaying(true);
+          if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              action: "play",
+              track: currentTrack,
+              isPlaying: true,
+              progress: progress,
+              timestamp: Date.now()
+            }));
+          }
+        })
         .catch(err => {
           console.error("Error resuming playback:", err);
-          if (currentTrack) playTrack(currentTrack);
+          if (currentTrack) playTrack(currentTrack, [], -1, shouldBroadcast);
         });
     }
   };
@@ -397,10 +440,17 @@ export const SpotifyProvider = ({ children }) => {
   };
 
   // Seek progress
-  const seekTo = (seconds) => {
+  const seekTo = (seconds, shouldBroadcast = true) => {
     if (!currentTrack) return;
     audioRef.current.currentTime = seconds;
     setProgress(seconds);
+    if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: "seek",
+        progress: seconds,
+        timestamp: Date.now()
+      }));
+    }
   };
 
   // Logout helper
@@ -432,6 +482,183 @@ export const SpotifyProvider = ({ children }) => {
       setQueueIndex(0);
       playTrack(track, updatedQueue, 0);
     }
+  };
+
+  // Room WebSocket Logic
+  const connectToRoom = (code, asHost) => {
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    const wsUrl = `wss://free.piesocket.com/v3/aurastream_room_${code}?api_key=VCbEZPAgoj7cw1oTvzb658HOp9twm2VJCM6u5X3D`;
+    console.log(`Connecting to room: ${wsUrl}`);
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("WebSocket connection established");
+      setRoomId(code);
+      setIsHost(asHost);
+      const username = userRef.current?.display_name || userRef.current?.id || "Web Guest";
+      
+      if (asHost) {
+        setRoomUsers([username]);
+      } else {
+        ws.send(JSON.stringify({
+          action: "join",
+          username
+        }));
+      }
+    };
+
+    ws.onmessage = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log("WebSocket message:", data);
+
+        switch (data.action) {
+          case "join":
+            if (asHost) {
+              setRoomUsers((prev) => {
+                const updated = prev.includes(data.username) ? prev : [...prev, data.username];
+                ws.send(JSON.stringify({
+                  action: "sync",
+                  track: currentTrackRef.current,
+                  isPlaying: isPlayingRef.current,
+                  progress: progressRef.current,
+                  users: updated,
+                  timestamp: Date.now()
+                }));
+                return updated;
+              });
+            }
+            break;
+
+          case "sync":
+            if (!asHost) {
+              if (data.users) {
+                setRoomUsers(data.users);
+              }
+              if (data.track) {
+                const latency = data.timestamp ? (Date.now() - data.timestamp) / 1000 : 0;
+                const targetPos = data.progress + (data.isPlaying ? latency : 0);
+                
+                if (!currentTrackRef.current || currentTrackRef.current.id !== data.track.id) {
+                  await playTrack(data.track, [data.track], 0, false);
+                  seekTo(targetPos, false);
+                } else {
+                  if (Math.abs(progressRef.current - targetPos) > 2) {
+                    seekTo(targetPos, false);
+                  }
+                }
+
+                if (data.isPlaying && !isPlayingRef.current) {
+                  audioRef.current.play()
+                    .then(() => setIsPlaying(true))
+                    .catch(e => console.error("Sync play failed", e));
+                } else if (!data.isPlaying && isPlayingRef.current) {
+                  audioRef.current.pause();
+                  setIsPlaying(false);
+                }
+              }
+            }
+            break;
+
+          case "play":
+            if (!asHost) {
+              if (data.track) {
+                const latency = data.timestamp ? (Date.now() - data.timestamp) / 1000 : 0;
+                const targetPos = (data.progress || 0) + latency;
+                
+                if (!currentTrackRef.current || currentTrackRef.current.id !== data.track.id) {
+                  await playTrack(data.track, [data.track], 0, false);
+                  if (targetPos > 0) {
+                    seekTo(targetPos, false);
+                  }
+                } else {
+                  if (Math.abs(progressRef.current - targetPos) > 2) {
+                    seekTo(targetPos, false);
+                  }
+                  if (!isPlayingRef.current) {
+                    audioRef.current.play()
+                      .then(() => setIsPlaying(true))
+                      .catch(e => console.error("Play transition failed", e));
+                  }
+                }
+              }
+            }
+            break;
+
+          case "pause":
+            if (!asHost) {
+              if (isPlayingRef.current) {
+                audioRef.current.pause();
+                setIsPlaying(false);
+              }
+            }
+            break;
+
+          case "seek":
+            if (!asHost) {
+              const latency = data.timestamp ? (Date.now() - data.timestamp) / 1000 : 0;
+              const targetPos = data.progress + latency;
+              seekTo(targetPos, false);
+            }
+            break;
+
+          case "leave":
+            setRoomUsers((prev) => prev.filter((u) => u !== data.username));
+            break;
+
+          default:
+            break;
+        }
+      } catch (err) {
+        console.error("Error processing WebSocket event:", err);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket connection closed");
+      setRoomId(null);
+      setRoomUsers([]);
+      setIsHost(false);
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+  };
+
+  const createRoom = () => {
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code = "";
+    for (let i = 0; i < 6; i++) {
+      code += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    connectToRoom(code, true);
+  };
+
+  const joinRoom = (code) => {
+    if (!code || code.trim().length !== 6) return;
+    connectToRoom(code.toUpperCase().trim(), false);
+  };
+
+  const leaveRoom = () => {
+    if (wsRef.current) {
+      if (wsRef.current.readyState === WebSocket.OPEN) {
+        const username = userRef.current?.display_name || userRef.current?.id || "Web Guest";
+        wsRef.current.send(JSON.stringify({
+          action: "leave",
+          username
+        }));
+      }
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setRoomId(null);
+    setRoomUsers([]);
+    setIsHost(false);
   };
 
   return (
@@ -473,7 +700,13 @@ export const SpotifyProvider = ({ children }) => {
         changeVolume,
         logout,
         updateClientId,
-        addToQueue
+        addToQueue,
+        roomId,
+        roomUsers,
+        isHost,
+        createRoom,
+        joinRoom,
+        leaveRoom
       }}
     >
       {children}
