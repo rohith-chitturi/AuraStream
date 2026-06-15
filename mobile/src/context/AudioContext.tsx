@@ -41,7 +41,7 @@ interface AudioContextProps {
   playNext: () => Promise<void>;
   playPrevious: () => Promise<void>;
   seekTo: (seconds: number) => Promise<void>;
-  createPlaylist: (name: string) => Promise<void>;
+  createPlaylist: (name: string, initialTrack?: Track) => Promise<void>;
   deletePlaylist: (id: string) => Promise<void>;
   addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>;
   removeTrackFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
@@ -50,6 +50,7 @@ interface AudioContextProps {
   login: (email: string, password: string) => Promise<boolean>;
   register: (username: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  addToQueue: (track: Track) => void;
 }
 
 const AudioContext = createContext<AudioContextProps | undefined>(undefined);
@@ -302,6 +303,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const addToQueue = (track: Track) => {
+    const updatedQueue = [...queue, track];
+    setQueue(updatedQueue);
+    if (queue.length === 0 || queueIndex === -1) {
+      setQueueIndex(0);
+      playTrack(track, updatedQueue, 0);
+    }
+  };
+
   // Local Playlists Manager
   const loadPlaylists = async () => {
     try {
@@ -327,11 +337,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const createPlaylist = async (name: string) => {
+  const createPlaylist = async (name: string, initialTrack?: Track) => {
     const newPlaylist: Playlist = {
       id: `playlist_${Date.now()}`,
       name,
-      tracks: []
+      tracks: initialTrack ? [initialTrack] : []
     };
     await savePlaylists([...playlists, newPlaylist]);
   };
@@ -570,7 +580,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         performSearch,
         login,
         register,
-        logout
+        logout,
+        addToQueue
       }}
     >
       {children}

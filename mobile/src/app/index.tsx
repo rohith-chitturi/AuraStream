@@ -56,12 +56,20 @@ export default function HomeScreen() {
 
     try {
       // Try Saavn first (fast, direct streams)
-      const saavnUrl = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`;
-      const searchRes = await fetch(saavnUrl);
-      if (!searchRes.ok) throw new Error("Search failed");
-      const json = await searchRes.json();
+      let json;
+      try {
+        const res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`);
+        if (res.ok) json = await res.json();
+      } catch (e) {
+        console.warn("saavn.dev search failed, trying backup");
+      }
+
+      if (!json || !json.success) {
+        const res = await fetch(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`);
+        if (res.ok) json = await res.json();
+      }
       
-      if (json.success && json.data?.results?.length > 0) {
+      if (json && json.success && json.data?.results?.length > 0) {
         const tracks: Track[] = json.data.results.slice(0, 8).map((item: any) => {
           const streams = item.downloadUrl || [];
           const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
@@ -132,12 +140,20 @@ export default function HomeScreen() {
   // Play a quick featured song by searching JioSaavn
   const playQuickSong = async (name: string, artist: string) => {
     try {
-      const saavnUrl = `https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(`${name} ${artist}`)}`;
-      const searchRes = await fetch(saavnUrl);
-      if (!searchRes.ok) throw new Error("Search failed");
-      const json = await searchRes.json();
+      let json;
+      try {
+        const res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(`${name} ${artist}`)}`);
+        if (res.ok) json = await res.json();
+      } catch (e) {
+        console.warn("saavn.dev search failed, trying backup");
+      }
+
+      if (!json || !json.success) {
+        const res = await fetch(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(`${name} ${artist}`)}`);
+        if (res.ok) json = await res.json();
+      }
       
-      if (json.success && json.data?.results?.length > 0) {
+      if (json && json.success && json.data?.results?.length > 0) {
         const matched = json.data.results[0];
         const streams = matched.downloadUrl || [];
         const bestStream = streams.find((s: any) => s.quality === "320kbps") || 

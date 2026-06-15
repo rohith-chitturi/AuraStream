@@ -67,11 +67,20 @@ export default function SearchScreen() {
     }
     setIsSearchingAlbums(true);
     try {
-      const url = `https://saavn.sumit.co/api/search/albums?query=${encodeURIComponent(query)}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Album search failed");
-      const json = await res.json();
-      if (json.success && json.data?.results) {
+      let json;
+      try {
+        const res = await fetch(`https://saavn.dev/api/search/albums?query=${encodeURIComponent(query)}`);
+        if (res.ok) json = await res.ok ? await res.json() : null;
+      } catch (e) {
+        console.warn("saavn.dev album search failed, trying backup");
+      }
+
+      if (!json || !json.success) {
+        const res = await fetch(`https://saavn.sumit.co/api/search/albums?query=${encodeURIComponent(query)}`);
+        if (res.ok) json = await res.json();
+      }
+
+      if (json && json.success && json.data?.results) {
         setAlbumResults(json.data.results);
       } else {
         setAlbumResults([]);
@@ -88,11 +97,20 @@ export default function SearchScreen() {
   const handlePlayAlbum = async (albumId: string, albumName: string) => {
     setLoadingAlbumId(albumId);
     try {
-      const res = await fetch(`https://saavn.sumit.co/api/albums?id=${albumId}`);
-      if (!res.ok) throw new Error("Album details failed");
-      const json = await res.json();
+      let json;
+      try {
+        const res = await fetch(`https://saavn.dev/api/albums?id=${albumId}`);
+        if (res.ok) json = await res.json();
+      } catch (e) {
+        console.warn("saavn.dev album details failed, trying backup");
+      }
 
-      if (json.success && json.data?.songs?.length > 0) {
+      if (!json || !json.success) {
+        const res = await fetch(`https://saavn.sumit.co/api/albums?id=${albumId}`);
+        if (res.ok) json = await res.json();
+      }
+
+      if (json && json.success && json.data?.songs?.length > 0) {
         const tracks: Track[] = json.data.songs.map((song: any) => {
           const streams = song.downloadUrl || [];
           const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
