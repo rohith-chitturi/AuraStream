@@ -33,10 +33,10 @@ const Login = () => {
           <div className="login-logo-container">
             <img
               src="/logo.png"
-              alt="AuraStream Logo"
+              alt="RohiBeatz Logo"
               className="login-logo"
             />
-            <span className="login-logo-text">AuraStream</span>
+            <span className="login-logo-text">RohiBeatz</span>
           </div>
           <h1 className="login-title">
             Premium Experience <span className="free-badge">FREE</span>
@@ -138,7 +138,7 @@ const Login = () => {
               Add the following **Redirect URIs** in your app settings, then click Save:
               <ul style={{ paddingLeft: "16px", marginTop: "4px", listStyleType: "disc", color: "var(--text-secondary)" }}>
                 <li>Web: <code>{window.location.origin.replace("localhost", "127.0.0.1")}/</code></li>
-                <li>Mobile App: <code>aurastream://localhost/</code></li>
+                <li>Mobile App: <code>rohibeatz://localhost/</code></li>
               </ul>
             </li>
             <li>
