@@ -64,30 +64,44 @@ export default function ArtistDetailModal({
         // Map topSongs to Track format
         if (json.data.topSongs && Array.isArray(json.data.topSongs)) {
           const mappedTracks: Track[] = json.data.topSongs.map((song: any) => {
-            const streams = song.downloadUrl || [];
-            const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
-                               streams.find((s: any) => s.quality === "160kbps") || 
-                               streams[streams.length - 1] || 
-                               { url: "" };
+            let streamUrl = "";
+            if (typeof song.downloadUrl === "string") {
+              streamUrl = song.downloadUrl;
+            } else if (Array.isArray(song.downloadUrl) && song.downloadUrl.length > 0) {
+              const bestStream = song.downloadUrl.find((s: any) => s.quality === "320kbps") || 
+                                 song.downloadUrl.find((s: any) => s.quality === "160kbps") || 
+                                 song.downloadUrl[song.downloadUrl.length - 1];
+              if (bestStream && bestStream.url) {
+                streamUrl = bestStream.url;
+              }
+            }
 
-            const images = song.image || [];
-            const bestImage = images.find((img: any) => img.quality === "500x500") || 
-                              images.find((img: any) => img.quality === "150x150") || 
-                              images[images.length - 1] || 
-                              { url: artistImage || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
+            let imageUrl = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300";
+            if (typeof song.image === "string") {
+              imageUrl = song.image;
+            } else if (Array.isArray(song.image) && song.image.length > 0) {
+              const bestImage = song.image.find((img: any) => img.quality === "500x500") || 
+                                song.image.find((img: any) => img.quality === "150x150") || 
+                                song.image[song.image.length - 1];
+              if (bestImage && bestImage.url) {
+                imageUrl = bestImage.url;
+              }
+            } else if (typeof artistImage === "string" && artistImage) {
+              imageUrl = artistImage;
+            }
 
             return {
               id: `saavn_${song.id}`,
-              name: song.name,
-              artists: song.artists?.primary?.length > 0 
-                ? song.artists.primary.map((a: any) => ({ name: a.name })) 
+              name: song.name || "Unknown Track",
+              artists: (song.artists && Array.isArray(song.artists.primary) && song.artists.primary.length > 0)
+                ? song.artists.primary.map((a: any) => ({ name: a?.name || "Unknown Artist" })) 
                 : [{ name: artistName || "Unknown Artist" }],
               album: {
-                name: song.album?.name || "Single",
-                images: [{ url: bestImage.url }]
+                name: (song.album && typeof song.album === "object" && song.album.name) ? song.album.name : "Single",
+                images: [{ url: imageUrl }]
               },
               duration_ms: (song.duration || 180) * 1000,
-              streamUrl: bestStream.url
+              streamUrl: streamUrl
             };
           });
           setArtistSongs(mappedTracks);
@@ -126,13 +140,15 @@ export default function ArtistDetailModal({
     const bio = artistDetails?.bio && Array.isArray(artistDetails.bio) && artistDetails.bio.length > 0
       ? artistDetails.bio[0]?.text
       : (artistDetails?.bio || "");
-    const cleanBio = bio ? bio.replace(/<[^>]*>/g, "") : "";
+    const bioStr = typeof bio === "string" ? bio : "";
+    const cleanBio = bioStr ? bioStr.replace(/<[^>]*>/g, "") : "";
+    const safeImage = (typeof artistImage === "string" && artistImage) ? artistImage : "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=150";
 
     return (
       <View style={styles.headerHero}>
-        <Image source={{ uri: artistImage }} style={styles.heroBackground} blurRadius={10} />
+        <Image source={{ uri: safeImage }} style={styles.heroBackground} blurRadius={10} />
         <LinearGradient colors={["transparent", "rgba(0,0,0,0.8)", "#000000"]} style={styles.heroGradient}>
-          <Image source={{ uri: artistImage }} style={styles.artistPhoto} />
+          <Image source={{ uri: safeImage }} style={styles.artistPhoto} />
           <Text style={styles.artistNameText}>{artistName}</Text>
           <View style={styles.badgeRow}>
             {artistDetails?.isVerified && (
