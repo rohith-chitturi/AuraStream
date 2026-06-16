@@ -373,7 +373,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       wsRef.current.close();
     }
 
-    const wsUrl = `wss://free.piesocket.com/v3/aurastream_room_${code}?api_key=VCbEZPAgoj7cw1oTvzb658HOp9twm2VJCM6u5X3D`;
+    const wsUrl = `wss://free3.piesocket.com/v3/aurastream_room_${code}?api_key=VCbEZPAgoj7cw1oTvzb658HOp9twm2VJCM6u5X3D`;
     console.log(`Connecting to room: ${wsUrl}`);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
