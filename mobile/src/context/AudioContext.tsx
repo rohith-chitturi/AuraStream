@@ -57,6 +57,10 @@ interface AudioContextProps {
   createRoom: () => void;
   joinRoom: (code: string) => void;
   leaveRoom: () => void;
+  recentSearches: string[];
+  addToRecentSearches: (query: string) => Promise<void>;
+  removeRecentSearch: (query: string) => Promise<void>;
+  clearRecentSearches: () => Promise<void>;
 }
 
 const AudioContext = createContext<AudioContextProps | undefined>(undefined);
@@ -109,6 +113,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   
   // Auth state
   const [user, setUser] = useState<{ username: string; email: string } | null>(null);
@@ -148,9 +153,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     checkSession();
   }, []);
 
-  // Reload playlists whenever the user profile changes (scopes data)
+  // Reload playlists and recent searches whenever the user profile changes (scopes data)
   useEffect(() => {
     loadPlaylists();
+    loadRecentSearches();
   }, [user]);
 
   // Initialize Audio Mode for Background Playback
@@ -544,6 +550,48 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Local Playlists Manager
+  const loadRecentSearches = async () => {
+    try {
+      const key = user ? `aurastream_recent_searches_${user.email}` : "aurastream_recent_searches";
+      const stored = await AsyncStorage.getItem(key);
+      if (stored) {
+        setRecentSearches(JSON.parse(stored));
+      } else {
+        setRecentSearches([]);
+      }
+    } catch (e) {
+      console.error("Load recent searches failed:", e);
+    }
+  };
+
+  const saveRecentSearches = async (updated: string[]) => {
+    try {
+      const key = user ? `aurastream_recent_searches_${user.email}` : "aurastream_recent_searches";
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
+      setRecentSearches(updated);
+    } catch (e) {
+      console.error("Save recent searches failed:", e);
+    }
+  };
+
+  const addToRecentSearches = async (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    const filtered = recentSearches.filter((s) => s.toLowerCase() !== trimmed.toLowerCase());
+    const updated = [trimmed, ...filtered].slice(0, 10);
+    await saveRecentSearches(updated);
+  };
+
+  const removeRecentSearch = async (query: string) => {
+    const updated = recentSearches.filter((s) => s !== query);
+    await saveRecentSearches(updated);
+  };
+
+  const clearRecentSearches = async () => {
+    await saveRecentSearches([]);
+  };
+
+  // Local Playlists Manager
   const loadPlaylists = async () => {
     try {
       const key = user ? `aurastream_playlists_${user.email}` : "aurastream_playlists";
@@ -818,7 +866,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isHost,
         createRoom,
         joinRoom,
-        leaveRoom
+        leaveRoom,
+        recentSearches,
+        addToRecentSearches,
+        removeRecentSearch,
+        clearRecentSearches
       }}
     >
       {children}
