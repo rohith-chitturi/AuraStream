@@ -1,9 +1,9 @@
 {
-  "appId": "com.aurastream.app",
-  "appName": "AuraStream",
+  "appId": "com.rohibeatz.app",
+  "appName": "RohiBeatz",
   "webDir": "dist",
   "server": {
-    "androidScheme": "aurastream"
+    "androidScheme": "rohibeatz"
   },
   "plugins": {
     "CapacitorHttp": {

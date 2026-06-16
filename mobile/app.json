@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "AuraStream",
-    "slug": "aurastream",
+    "name": "RohiBeatz",
+    "slug": "rohibeatz",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -11,7 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
-      "package": "com.aurastream.mobile",
+      "package": "com.rohibeatz.mobile",
       "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
