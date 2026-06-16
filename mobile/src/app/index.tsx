@@ -440,7 +440,7 @@ export default function HomeScreen() {
           <View style={styles.infoBox}>
             <Text style={styles.infoTitle}>Guest Session Engine active</Text>
             <Text style={styles.infoText}>
-              You are currently using AuraStream in Guest Mode. Playlists created will not be saved permanently to an account.
+              You are currently using RohiBeatz in Guest Mode. Playlists created will not be saved permanently to an account.
             </Text>
             <TouchableOpacity onPress={logout} style={styles.loginBtn}>
               <Text style={styles.loginBtnText}>SIGN IN / CREATE ACCOUNT</Text>

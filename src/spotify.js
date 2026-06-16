@@ -150,7 +150,7 @@ const base64urlencode = (buffer) => {
 export const getRedirectUri = () => {
   const isNative = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
   if (isNative) {
-    return "aurastream://localhost/";
+    return "rohibeatz://localhost/";
   }
 
   let origin = window.location.origin;

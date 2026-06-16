@@ -330,7 +330,7 @@ export default function LibraryScreen() {
                 {user ? user.username : "Guest User"}
               </Text>
               <Text style={styles.profileEmail}>
-                {user ? user.email : "guest@aurastream.local"}
+                {user ? user.email : "guest@rohibeatz.local"}
               </Text>
 
               <View style={styles.badgeRow}>
