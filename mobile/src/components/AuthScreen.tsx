@@ -129,7 +129,7 @@ export default function AuthScreen() {
             >
               <Disc color="#ffffff" size={32} />
             </LinearGradient>
-            <Text style={styles.brandTitle}>AuraStream</Text>
+            <Text style={styles.brandTitle}>RohiBeatz</Text>
             <Text style={styles.brandSubtitle}>Your Sound. Your Energy. Scaped.</Text>
           </View>
 
