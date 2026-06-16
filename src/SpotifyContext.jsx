@@ -16,6 +16,160 @@ const SpotifyContext = createContext();
 // Global set to keep track of token exchange codes in progress to prevent duplicate requests
 const exchangingCodes = new Set();
 
+// MQTT over WebSocket protocol helpers
+const MQTT_BROKER = "wss://broker.hivemq.com:8884/mqtt";
+
+function stringToUtf8(str) {
+  const bytes = [];
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code < 0x80) {
+      bytes.push(code);
+    } else if (code < 0x800) {
+      bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+    } else {
+      bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+    }
+  }
+  return new Uint8Array(bytes);
+}
+
+function utf8ToString(bytes) {
+  let str = "";
+  let i = 0;
+  while (i < bytes.length) {
+    const b1 = bytes[i++];
+    if (b1 < 0x80) {
+      str += String.fromCharCode(b1);
+    } else if (b1 < 0xe0) {
+      const b2 = bytes[i++];
+      str += String.fromCharCode(((b1 & 0x1f) << 6) | (b2 & 0x3f));
+    } else {
+      const b3 = bytes[i++];
+      const b4 = bytes[i++];
+      str += String.fromCharCode(((b1 & 0x0f) << 12) | ((b3 & 0x3f) << 6) | (b4 & 0x3f));
+    }
+  }
+  return str;
+}
+
+function encodeRemainingLength(length) {
+  const bytes = [];
+  do {
+    let encodedByte = length % 128;
+    length = Math.floor(length / 128);
+    if (length > 0) {
+      encodedByte = encodedByte | 128;
+    }
+    bytes.push(encodedByte);
+  } while (length > 0);
+  return bytes;
+}
+
+function decodeRemainingLength(bytes, startIdx) {
+  let multiplier = 1;
+  let value = 0;
+  let idx = startIdx;
+  let encodedByte;
+  do {
+    encodedByte = bytes[idx++];
+    value += (encodedByte & 127) * multiplier;
+    multiplier *= 128;
+  } while ((encodedByte & 128) !== 0);
+  return { value, lengthBytes: idx - startIdx };
+}
+
+function sendMqttMessage(ws, topic, messageObj) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const payloadStr = JSON.stringify(messageObj);
+  const topicBytes = stringToUtf8(topic);
+  const payloadBytes = stringToUtf8(payloadStr);
+  
+  const remainingLen = 2 + topicBytes.length + payloadBytes.length;
+  const lenBytes = encodeRemainingLength(remainingLen);
+  
+  const packet = new Uint8Array(1 + lenBytes.length + remainingLen);
+  let pos = 0;
+  packet[pos++] = 0x30; // PUBLISH (QoS 0)
+  
+  for (let i = 0; i < lenBytes.length; i++) {
+    packet[pos++] = lenBytes[i];
+  }
+  
+  packet[pos++] = (topicBytes.length >> 8) & 0xff;
+  packet[pos++] = topicBytes.length & 0xff;
+  
+  packet.set(topicBytes, pos);
+  pos += topicBytes.length;
+  
+  packet.set(payloadBytes, pos);
+  
+  ws.send(packet);
+}
+
+function sendMqttConnect(ws, clientId) {
+  const protocolName = "MQTT";
+  const payloadLen = 2 + clientId.length;
+  const variableHeaderLen = 10;
+  const remainingLen = variableHeaderLen + payloadLen;
+  const lenBytes = encodeRemainingLength(remainingLen);
+  
+  const packet = new Uint8Array(1 + lenBytes.length + remainingLen);
+  let pos = 0;
+  packet[pos++] = 0x10; // CONNECT
+  
+  for (let i = 0; i < lenBytes.length; i++) {
+    packet[pos++] = lenBytes[i];
+  }
+  
+  packet[pos++] = 0x00;
+  packet[pos++] = 0x04;
+  packet[pos++] = 0x4d; // M
+  packet[pos++] = 0x51; // Q
+  packet[pos++] = 0x54; // T
+  packet[pos++] = 0x54; // T
+  
+  packet[pos++] = 0x04; // Level
+  packet[pos++] = 0x02; // Flags (Clean session)
+  packet[pos++] = 0x00;
+  packet[pos++] = 0x3c; // Keepalive (60s)
+  
+  packet[pos++] = (clientId.length >> 8) & 0xff;
+  packet[pos++] = clientId.length & 0xff;
+  
+  const idBytes = stringToUtf8(clientId);
+  packet.set(idBytes, pos);
+  
+  ws.send(packet);
+}
+
+function sendMqttSubscribe(ws, topic) {
+  const topicBytes = stringToUtf8(topic);
+  const remainingLen = 2 + 2 + topicBytes.length + 1;
+  const lenBytes = encodeRemainingLength(remainingLen);
+  
+  const packet = new Uint8Array(1 + lenBytes.length + remainingLen);
+  let pos = 0;
+  packet[pos++] = 0x82; // SUBSCRIBE
+  
+  for (let i = 0; i < lenBytes.length; i++) {
+    packet[pos++] = lenBytes[i];
+  }
+  
+  packet[pos++] = 0x00;
+  packet[pos++] = 0x01; // Msg ID
+  
+  packet[pos++] = (topicBytes.length >> 8) & 0xff;
+  packet[pos++] = topicBytes.length & 0xff;
+  
+  packet.set(topicBytes, pos);
+  pos += topicBytes.length;
+  
+  packet[pos++] = 0x00; // QoS 0
+  
+  ws.send(packet);
+}
+
 export const SpotifyProvider = ({ children }) => {
   // Auth state
   const [token, setToken] = useState(localStorage.getItem("spotify_token") || null);
@@ -65,6 +219,13 @@ export const SpotifyProvider = ({ children }) => {
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { progressRef.current = progress; }, [progress]);
   useEffect(() => { userRef.current = user; }, [user]);
+
+  const broadcastMessage = (msg) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && roomId) {
+      const codeLower = roomId.toLowerCase();
+      sendMqttMessage(wsRef.current, `rohibeatz_room_${codeLower}`, msg);
+    }
+  };
 
   // Set initial volume
   useEffect(() => {
@@ -347,14 +508,14 @@ export const SpotifyProvider = ({ children }) => {
       setQueueIndex(index !== -1 ? index : newQueue.findIndex((t) => t.id === track.id));
     }
 
-    if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
+    if (shouldBroadcast) {
+      broadcastMessage({
         action: "play",
         track,
         isPlaying: true,
         progress: 0,
         timestamp: Date.now()
-      }));
+      });
     }
 
     try {
@@ -391,24 +552,24 @@ export const SpotifyProvider = ({ children }) => {
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
-      if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
+      if (shouldBroadcast) {
+        broadcastMessage({
           action: "pause",
           timestamp: Date.now()
-        }));
+        });
       }
     } else {
       audioRef.current.play()
         .then(() => {
           setIsPlaying(true);
-          if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({
+          if (shouldBroadcast) {
+            broadcastMessage({
               action: "play",
               track: currentTrack,
               isPlaying: true,
               progress: progress,
               timestamp: Date.now()
-            }));
+            });
           }
         })
         .catch(err => {
@@ -444,12 +605,12 @@ export const SpotifyProvider = ({ children }) => {
     if (!currentTrack) return;
     audioRef.current.currentTime = seconds;
     setProgress(seconds);
-    if (shouldBroadcast && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
+    if (shouldBroadcast) {
+      broadcastMessage({
         action: "seek",
         progress: seconds,
         timestamp: Date.now()
-      }));
+      });
     }
   };
 
@@ -490,131 +651,162 @@ export const SpotifyProvider = ({ children }) => {
       wsRef.current.close();
     }
 
-    const wsUrl = `wss://free3.piesocket.com/v3/aurastream_room_${code}?api_key=VCbEZPAgoj7cw1oTvzb658HOp9twm2VJCM6u5X3D`;
-    console.log(`Connecting to room: ${wsUrl}`);
-    const ws = new WebSocket(wsUrl);
+    const codeLower = code.toLowerCase();
+    console.log(`Connecting to MQTT room via HiveMQ: ${MQTT_BROKER} (topic: rohibeatz_room_${codeLower})`);
+    
+    const ws = new WebSocket(MQTT_BROKER, "mqtt");
+    ws.binaryType = "arraybuffer";
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("WebSocket connection established");
-      setRoomId(code);
-      setIsHost(asHost);
-      const username = userRef.current?.display_name || userRef.current?.id || "Web Guest";
-      
-      if (asHost) {
-        setRoomUsers([username]);
-      } else {
-        ws.send(JSON.stringify({
-          action: "join",
-          username
-        }));
-      }
+      console.log("WebSocket opened. Sending MQTT CONNECT...");
+      const clientId = "rohibeatz_web_" + Math.random().toString(36).substring(2, 7);
+      sendMqttConnect(ws, clientId);
     };
 
     ws.onmessage = async (event) => {
       try {
-        const data = JSON.parse(event.data);
-        console.log("WebSocket message:", data);
+        if (!(event.data instanceof ArrayBuffer)) {
+          console.warn("Expected ArrayBuffer data from MQTT broker, got:", typeof event.data);
+          return;
+        }
+        
+        const bytes = new Uint8Array(event.data);
+        const header = bytes[0];
+        
+        if (header === 0x20) {
+          console.log("CONNACK received. Subscribing to topic...");
+          sendMqttSubscribe(ws, `rohibeatz_room_${codeLower}`);
+          
+          setRoomId(code);
+          setIsHost(asHost);
+          const username = userRef.current?.display_name || userRef.current?.id || "Web Guest";
+          
+          if (asHost) {
+            setRoomUsers([username]);
+          } else {
+            sendMqttMessage(ws, `rohibeatz_room_${codeLower}`, {
+              action: "join",
+              username
+            });
+          }
+        }
+        else if (header === 0x90) {
+          console.log("SUBACK received. Room sync connection established.");
+        }
+        else if ((header & 0xf0) === 0x30) {
+          // PUBLISH message received
+          const { value: remainingLen, lengthBytes: varLenBytes } = decodeRemainingLength(bytes, 1);
+          const startOfTopic = 1 + varLenBytes;
+          const topicLen = (bytes[startOfTopic] << 8) | bytes[startOfTopic + 1];
+          
+          const payloadStart = startOfTopic + 2 + topicLen;
+          const payloadBytes = bytes.slice(payloadStart);
+          const payloadStr = utf8ToString(payloadBytes);
+          
+          const data = JSON.parse(payloadStr);
+          console.log("MQTT action received:", data.action, data);
 
-        switch (data.action) {
-          case "join":
-            if (asHost) {
-              setRoomUsers((prev) => {
-                const updated = prev.includes(data.username) ? prev : [...prev, data.username];
-                ws.send(JSON.stringify({
-                  action: "sync",
-                  track: currentTrackRef.current,
-                  isPlaying: isPlayingRef.current,
-                  progress: progressRef.current,
-                  users: updated,
-                  timestamp: Date.now()
-                }));
-                return updated;
-              });
-            }
-            break;
-
-          case "sync":
-            if (!asHost) {
-              if (data.users) {
-                setRoomUsers(data.users);
+          switch (data.action) {
+            case "join":
+              if (asHost) {
+                setRoomUsers((prev) => {
+                  const updated = prev.includes(data.username) ? prev : [...prev, data.username];
+                  sendMqttMessage(ws, `rohibeatz_room_${codeLower}`, {
+                    action: "sync",
+                    track: currentTrackRef.current,
+                    isPlaying: isPlayingRef.current,
+                    progress: progressRef.current,
+                    users: updated,
+                    timestamp: Date.now()
+                  });
+                  return updated;
+                });
               }
-              if (data.track) {
-                const latency = data.timestamp ? (Date.now() - data.timestamp) / 1000 : 0;
-                const targetPos = data.progress + (data.isPlaying ? latency : 0);
-                
-                if (!currentTrackRef.current || currentTrackRef.current.id !== data.track.id) {
-                  await playTrack(data.track, [data.track], 0, false);
-                  seekTo(targetPos, false);
-                } else {
-                  if (Math.abs(progressRef.current - targetPos) > 2) {
+              break;
+
+            case "sync":
+              if (!asHost) {
+                if (data.users) {
+                  setRoomUsers(data.users);
+                }
+                if (data.track) {
+                  const latency = data.timestamp ? (Date.now() - data.timestamp) / 1000 : 0;
+                  const targetPos = data.progress + (data.isPlaying ? latency : 0);
+                  
+                  if (!currentTrackRef.current || currentTrackRef.current.id !== data.track.id) {
+                    await playTrack(data.track, [data.track], 0, false);
                     seekTo(targetPos, false);
+                  } else {
+                    if (Math.abs(progressRef.current - targetPos) > 2) {
+                      seekTo(targetPos, false);
+                    }
+                  }
+
+                  if (data.isPlaying && !isPlayingRef.current) {
+                    audioRef.current.play()
+                      .then(() => setIsPlaying(true))
+                      .catch(e => console.error("Sync play failed", e));
+                  } else if (!data.isPlaying && isPlayingRef.current) {
+                    audioRef.current.pause();
+                    setIsPlaying(false);
                   }
                 }
+              }
+              break;
 
-                if (data.isPlaying && !isPlayingRef.current) {
-                  audioRef.current.play()
-                    .then(() => setIsPlaying(true))
-                    .catch(e => console.error("Sync play failed", e));
-                } else if (!data.isPlaying && isPlayingRef.current) {
+            case "play":
+              if (!asHost) {
+                if (data.track) {
+                  const latency = data.timestamp ? (Date.now() - data.timestamp) / 1000 : 0;
+                  const targetPos = (data.progress || 0) + latency;
+                  
+                  if (!currentTrackRef.current || currentTrackRef.current.id !== data.track.id) {
+                    await playTrack(data.track, [data.track], 0, false);
+                    if (targetPos > 0) {
+                      seekTo(targetPos, false);
+                    }
+                  } else {
+                    if (Math.abs(progressRef.current - targetPos) > 2) {
+                      seekTo(targetPos, false);
+                    }
+                    if (!isPlayingRef.current) {
+                      audioRef.current.play()
+                        .then(() => setIsPlaying(true))
+                        .catch(e => console.error("Play transition failed", e));
+                    }
+                  }
+                }
+              }
+              break;
+
+            case "pause":
+              if (!asHost) {
+                if (isPlayingRef.current) {
                   audioRef.current.pause();
                   setIsPlaying(false);
                 }
               }
-            }
-            break;
+              break;
 
-          case "play":
-            if (!asHost) {
-              if (data.track) {
+            case "seek":
+              if (!asHost) {
                 const latency = data.timestamp ? (Date.now() - data.timestamp) / 1000 : 0;
-                const targetPos = (data.progress || 0) + latency;
-                
-                if (!currentTrackRef.current || currentTrackRef.current.id !== data.track.id) {
-                  await playTrack(data.track, [data.track], 0, false);
-                  if (targetPos > 0) {
-                    seekTo(targetPos, false);
-                  }
-                } else {
-                  if (Math.abs(progressRef.current - targetPos) > 2) {
-                    seekTo(targetPos, false);
-                  }
-                  if (!isPlayingRef.current) {
-                    audioRef.current.play()
-                      .then(() => setIsPlaying(true))
-                      .catch(e => console.error("Play transition failed", e));
-                  }
-                }
+                const targetPos = data.progress + latency;
+                seekTo(targetPos, false);
               }
-            }
-            break;
+              break;
 
-          case "pause":
-            if (!asHost) {
-              if (isPlayingRef.current) {
-                audioRef.current.pause();
-                setIsPlaying(false);
-              }
-            }
-            break;
+            case "leave":
+              setRoomUsers((prev) => prev.filter((u) => u !== data.username));
+              break;
 
-          case "seek":
-            if (!asHost) {
-              const latency = data.timestamp ? (Date.now() - data.timestamp) / 1000 : 0;
-              const targetPos = data.progress + latency;
-              seekTo(targetPos, false);
-            }
-            break;
-
-          case "leave":
-            setRoomUsers((prev) => prev.filter((u) => u !== data.username));
-            break;
-
-          default:
-            break;
+            default:
+              break;
+          }
         }
       } catch (err) {
-        console.error("Error processing WebSocket event:", err);
+        console.error("Error processing WebSocket/MQTT event:", err);
       }
     };
 
@@ -646,12 +838,13 @@ export const SpotifyProvider = ({ children }) => {
 
   const leaveRoom = () => {
     if (wsRef.current) {
-      if (wsRef.current.readyState === WebSocket.OPEN) {
+      if (wsRef.current.readyState === WebSocket.OPEN && roomId) {
+        const codeLower = roomId.toLowerCase();
         const username = userRef.current?.display_name || userRef.current?.id || "Web Guest";
-        wsRef.current.send(JSON.stringify({
+        sendMqttMessage(wsRef.current, `rohibeatz_room_${codeLower}`, {
           action: "leave",
           username
-        }));
+        });
       }
       wsRef.current.close();
       wsRef.current = null;
