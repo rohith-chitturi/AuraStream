@@ -9,6 +9,7 @@ import {
   Image,
   ScrollView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -91,14 +92,61 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
   const [isRepeat, setIsRepeat] = useState(false);
   const lyricsScrollViewRef = useRef<ScrollView>(null);
 
-  const mockLyrics = currentTrack ? getMockLyrics(currentTrack.name, duration || 240) : [];
+  // Real lyrics states
+  const [realLyrics, setRealLyrics] = useState<{ time: number; text: string }[]>([]);
+  const [loadingLyrics, setLoadingLyrics] = useState(false);
+
+  const fetchLyrics = async (artist: string, title: string, trackDuration: number) => {
+    setLoadingLyrics(true);
+    try {
+      const cleanTitle = title.replace(/\(.*\)/g, "").replace(/\[.*\]/g, "").trim();
+      const cleanArtist = artist.split(/,|&/)[0].trim();
+
+      const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.lyrics) {
+          const rawLines = json.lyrics
+            .split("\n")
+            .map((line: string) => line.trim())
+            .filter((line: string) => line.length > 0 && !line.toLowerCase().startsWith("paroles de"));
+
+          if (rawLines.length > 0) {
+            const finalDuration = trackDuration || 240;
+            const step = finalDuration / rawLines.length;
+            const mapped = rawLines.map((text: string, idx: number) => ({
+              time: Math.floor(idx * step),
+              text,
+            }));
+            setRealLyrics(mapped);
+            setLoadingLyrics(false);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Failed fetching lyrics from lyrics.ovh:", e);
+    }
+
+    const mock = getMockLyrics(title, trackDuration || 240);
+    setRealLyrics(mock);
+    setLoadingLyrics(false);
+  };
+
+  useEffect(() => {
+    if (visible && currentTrack) {
+      const primaryArtist = currentTrack.artists?.[0]?.name || "Unknown";
+      const trackDuration = duration || (currentTrack.duration_ms / 1000) || 240;
+      fetchLyrics(primaryArtist, currentTrack.name, trackDuration);
+    }
+  }, [currentTrack, visible, duration]);
 
   // Auto scroll lyrics based on progress
   useEffect(() => {
-    if (!showQueue && !showPlaylistPicker && lyricsScrollViewRef.current && mockLyrics.length > 0) {
-      // Find current lyric index
-      const activeIndex = mockLyrics.findIndex(
-        (l, i) => progress >= l.time && (i === mockLyrics.length - 1 || progress < mockLyrics[i + 1].time)
+    if (!showQueue && !showPlaylistPicker && lyricsScrollViewRef.current && realLyrics.length > 0) {
+      const activeIndex = realLyrics.findIndex(
+        (l, i) => progress >= l.time && (i === realLyrics.length - 1 || progress < realLyrics[i + 1].time)
       );
 
       if (activeIndex !== -1) {
@@ -108,7 +156,7 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
         });
       }
     }
-  }, [progress, showQueue, showPlaylistPicker]);
+  }, [progress, showQueue, showPlaylistPicker, realLyrics]);
 
   if (!currentTrack) return null;
 
@@ -118,17 +166,16 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
     return `${m}:${s}`;
   };
 
-  // Custom progress slider touch handling
   const handleProgressBarPress = (e: any) => {
     if (!duration) return;
     const locationX = e.nativeEvent.locationX;
-    const sliderWidth = width - 64; // Horizontal margin padding
+    const sliderWidth = width - 64;
     const percent = Math.min(Math.max(0, locationX / sliderWidth), 1);
     seekTo(percent * duration);
   };
 
-  const currentLyricIndex = mockLyrics.findIndex(
-    (l, i) => progress >= l.time && (i === mockLyrics.length - 1 || progress < mockLyrics[i + 1].time)
+  const currentLyricIndex = realLyrics.findIndex(
+    (l, i) => progress >= l.time && (i === realLyrics.length - 1 || progress < realLyrics[i + 1].time)
   );
 
   return (
@@ -330,27 +377,31 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
               {/* Lyrics Panel */}
               <View style={[styles.lyricsContainer, { height: lyricsHeight }, isSmallScreen && { marginBottom: 10 }]}>
                 <Text style={styles.lyricsLabel}>Lyrics</Text>
-                <ScrollView
-                  ref={lyricsScrollViewRef}
-                  style={styles.lyricsScroll}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingVertical: 12 }}
-                >
-                  {mockLyrics.map((lyric, idx) => {
-                    const isActive = idx === currentLyricIndex;
-                    return (
-                      <Text
-                        key={idx}
-                        style={[
-                          styles.lyricLine,
-                          isActive && styles.lyricLineActive,
-                        ]}
-                      >
-                        {lyric.text}
-                      </Text>
-                    );
-                  })}
-                </ScrollView>
+                {loadingLyrics ? (
+                  <ActivityIndicator size="small" color="#ffffff" style={{ marginVertical: 24 }} />
+                ) : (
+                  <ScrollView
+                    ref={lyricsScrollViewRef}
+                    style={styles.lyricsScroll}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingVertical: 12 }}
+                  >
+                    {realLyrics.map((lyric, idx) => {
+                      const isActive = idx === currentLyricIndex;
+                      return (
+                        <Text
+                          key={idx}
+                          style={[
+                            styles.lyricLine,
+                            isActive && styles.lyricLineActive,
+                          ]}
+                        >
+                          {lyric.text}
+                        </Text>
+                      );
+                    })}
+                  </ScrollView>
+                )}
               </View>
 
               {/* Bottom Actions Row */}
