@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.png', 'icons.svg'],
       manifest: {
-        name: 'AuraStream (Free Premium)',
-        short_name: 'AuraStream',
+        name: 'RohiBeatz (Free Premium)',
+        short_name: 'RohiBeatz',
         description: 'Complete premium music streaming clone with free listening',
         theme_color: '#121212',
         background_color: '#121212',
