@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,9 +15,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Sparkles, Play, Flame, Disc, Radio, Library } from "lucide-react-native";
 import { useAudio, Track } from "@/context/AudioContext";
 import { Colors } from "@/constants/theme";
-
-const { width } = Dimensions.get("window");
-
 import ArtistDetailModal from "@/components/ArtistDetailModal";
 
 const { width } = Dimensions.get("window");
