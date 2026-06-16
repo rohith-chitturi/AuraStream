@@ -20,10 +20,10 @@ const Sidebar = () => {
           <div className="logo-badge">
             <img
               src="/logo.png"
-              alt="AuraStream Logo"
+              alt="RohiBeatz Logo"
               className="logo"
             />
-            <span className="logo-text">AuraStream</span>
+            <span className="logo-text">RohiBeatz</span>
           </div>
         </div>
 
