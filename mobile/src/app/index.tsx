@@ -451,6 +451,15 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Artist Detail Modal Overlay */}
+      <ArtistDetailModal
+        visible={selectedArtist !== null}
+        artistId={selectedArtist?.id}
+        artistName={selectedArtist?.name}
+        artistImage={selectedArtist?.image}
+        onClose={() => setSelectedArtist(null)}
+      />
     </View>
   );
 }
@@ -621,6 +630,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 12,
     padding: 16,
+    marginBottom: 20,
   },
   infoTitle: {
     color: "#ffffff",
@@ -663,5 +673,117 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  langSelectorRow: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  langLabel: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  langPills: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  langPill: {
+    backgroundColor: "#121212",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  langPillActive: {
+    backgroundColor: "#1db954",
+    borderColor: "#1db954",
+  },
+  langText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  langTextActive: {
+    color: "#000000",
+    fontWeight: "800",
+  },
+  singersScrollContent: {
+    paddingLeft: 20,
+    paddingRight: 10,
+    gap: 16,
+    marginBottom: 28,
+  },
+  singerCard: {
+    alignItems: "center",
+    width: 80,
+  },
+  singerAvatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: 8,
+  },
+  singerName: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  horizontalShelfContent: {
+    paddingLeft: 20,
+    paddingRight: 10,
+    gap: 16,
+    marginBottom: 28,
+  },
+  shelfCard: {
+    width: 130,
+  },
+  shelfImageContainer: {
+    position: "relative",
+    width: 130,
+    height: 130,
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  shelfCardImage: {
+    width: "100%",
+    height: "100%",
+  },
+  shelfPlayOverlay: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#1db954",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+  },
+  shelfCardTitle: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  shelfCardArtist: {
+    color: "#b3b3b3",
+    fontSize: 11,
+    marginTop: 2,
+  },
+  loaderContainer: {
+    height: 100,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
