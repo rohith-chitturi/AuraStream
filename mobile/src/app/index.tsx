@@ -18,14 +18,17 @@ import { Colors } from "@/constants/theme";
 
 const { width } = Dimensions.get("window");
 
-// Premium pre-configured tracks for immediate search & playback
-const FEATURED_TRACKS = [
-  { name: "Blinding Lights", artist: "The Weeknd" },
-  { name: "Starboy", artist: "The Weeknd" },
-  { name: "Sweater Weather", artist: "The Neighbourhood" },
-  { name: "Another Love", artist: "Tom Odell" },
-  { name: "Perfect", artist: "Ed Sheeran" },
-  { name: "Nightcall", artist: "Kavinsky" },
+import ArtistDetailModal from "@/components/ArtistDetailModal";
+
+const { width } = Dimensions.get("window");
+
+const POPULAR_SINGERS = [
+  { id: "459320", name: "Arijit Singh", image: "https://c.saavncdn.com/artists/Arijit_Singh_004_20241118063717_500x500.jpg" },
+  { id: "615155", name: "The Weeknd", image: "https://c.saavncdn.com/artists/The_Weeknd_002_20241003071400_500x500.jpg" },
+  { id: "565990", name: "Taylor Swift", image: "https://c.saavncdn.com/artists/Taylor_Swift_003_20200226074119_500x500.jpg" },
+  { id: "455663", name: "Anirudh", image: "https://c.saavncdn.com/artists/Anirudh_Ravichander_003_20260121134149_500x500.jpg" },
+  { id: "468245", name: "Diljit Dosanjh", image: "https://c.saavncdn.com/artists/Diljit_Dosanjh_005_20231025073054_500x500.jpg" },
+  { id: "455130", name: "Shreya Ghoshal", image: "https://c.saavncdn.com/artists/Shreya_Ghoshal_007_20241101074144_500x500.jpg" }
 ];
 
 const PRESET_MOODS = [
@@ -41,6 +44,113 @@ export default function HomeScreen() {
   const [activeMood, setActiveMood] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
 
+  // Dynamic shelves state
+  const [language, setLanguage] = useState<"hindi" | "english" | "telugu">("hindi");
+  const [trendingSongs, setTrendingSongs] = useState<Track[]>([]);
+  const [newReleases, setNewReleases] = useState<Track[]>([]);
+  const [loadingTrending, setLoadingTrending] = useState(false);
+  const [loadingNewReleases, setLoadingNewReleases] = useState(false);
+
+  // Selected artist details modal state
+  const [selectedArtist, setSelectedArtist] = useState<any | null>(null);
+
+  useEffect(() => {
+    fetchTrendingSongs();
+    fetchNewReleases();
+  }, [language]);
+
+  const fetchTrendingSongs = async () => {
+    setLoadingTrending(true);
+    try {
+      const query = language === "hindi" 
+        ? "trending hindi hits" 
+        : (language === "english" ? "trending english hits" : "trending telugu hits");
+      
+      const res = await fetch(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`);
+      const json = await res.json();
+      if (res.ok && json.success && json.data?.results) {
+        const mapped: Track[] = json.data.results.slice(0, 10).map((item: any) => {
+          const streams = item.downloadUrl || [];
+          const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
+                             streams.find((s: any) => s.quality === "160kbps") || 
+                             streams[streams.length - 1] || 
+                             { url: "" };
+
+          const images = item.image || [];
+          const bestImage = images.find((img: any) => img.quality === "500x500") || 
+                            images.find((img: any) => img.quality === "150x150") || 
+                            images[images.length - 1] || 
+                            { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
+
+          return {
+            id: `saavn_${item.id}`,
+            name: item.name,
+            artists: item.artists?.primary?.length > 0 
+              ? item.artists.primary.map((a: any) => ({ name: a.name })) 
+              : [{ name: item.label || "Unknown Artist" }],
+            album: {
+              name: item.album?.name || "JioSaavn",
+              images: [{ url: bestImage.url }]
+            },
+            duration_ms: (item.duration || 180) * 1000,
+            streamUrl: bestStream.url
+          };
+        });
+        setTrendingSongs(mapped);
+      }
+    } catch (e) {
+      console.warn("Failed fetching trending songs:", e);
+    } finally {
+      setLoadingTrending(false);
+    }
+  };
+
+  const fetchNewReleases = async () => {
+    setLoadingNewReleases(true);
+    try {
+      const query = language === "hindi" 
+        ? "latest hindi songs" 
+        : (language === "english" ? "latest english songs" : "latest telugu songs");
+
+      const res = await fetch(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}`);
+      const json = await res.json();
+      if (res.ok && json.success && json.data?.results) {
+        const mapped: Track[] = json.data.results.slice(0, 10).map((item: any) => {
+          const streams = item.downloadUrl || [];
+          const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
+                             streams.find((s: any) => s.quality === "160kbps") || 
+                             streams[streams.length - 1] || 
+                             { url: "" };
+
+          const images = item.image || [];
+          const bestImage = images.find((img: any) => img.quality === "500x500") || 
+                            images.find((img: any) => img.quality === "150x150") || 
+                            images[images.length - 1] || 
+                            { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
+
+          return {
+            id: `saavn_${item.id}`,
+            name: item.name,
+            artists: item.artists?.primary?.length > 0 
+              ? item.artists.primary.map((a: any) => ({ name: a.name })) 
+              : [{ name: item.label || "Unknown Artist" }],
+            album: {
+              name: item.album?.name || "JioSaavn",
+              images: [{ url: bestImage.url }]
+            },
+            duration_ms: (item.duration || 180) * 1000,
+            streamUrl: bestStream.url
+          };
+        });
+        setNewReleases(mapped);
+      }
+    } catch (e) {
+      console.warn("Failed fetching new releases:", e);
+    } finally {
+      setLoadingNewReleases(false);
+    }
+  };
+
   const getGreeting = () => {
     const hours = new Date().getHours();
     if (hours < 12) return "Good morning";
@@ -55,7 +165,6 @@ export default function HomeScreen() {
     setActiveMood(moodName);
 
     try {
-      // Try Saavn first (fast, direct streams)
       let json;
       try {
         const res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(query)}`);
@@ -137,83 +246,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Play a quick featured song by searching JioSaavn
-  const playQuickSong = async (name: string, artist: string) => {
-    try {
-      let json;
-      try {
-        const res = await fetch(`https://saavn.dev/api/search/songs?query=${encodeURIComponent(`${name} ${artist}`)}`);
-        if (res.ok) json = await res.json();
-      } catch (e) {
-        console.warn("saavn.dev search failed, trying backup");
-      }
-
-      if (!json || !json.success) {
-        const res = await fetch(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(`${name} ${artist}`)}`);
-        if (res.ok) json = await res.json();
-      }
-      
-      if (json && json.success && json.data?.results?.length > 0) {
-        const matched = json.data.results[0];
-        const streams = matched.downloadUrl || [];
-        const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
-                           streams.find((s: any) => s.quality === "160kbps") || 
-                           streams[streams.length - 1] || 
-                           { url: "" };
-
-        const images = matched.image || [];
-        const bestImage = images.find((img: any) => img.quality === "500x500") || 
-                          images.find((img: any) => img.quality === "150x150") || 
-                          images[images.length - 1] || 
-                          { url: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" };
-
-        const track: Track = {
-          id: `saavn_${matched.id}`,
-          name: matched.name,
-          artists: matched.artists?.primary?.length > 0 
-            ? matched.artists.primary.map((a: any) => ({ name: a.name })) 
-            : [{ name: matched.label || artist }],
-          album: {
-            name: matched.album?.name || "Featured Single",
-            images: [{ url: bestImage.url }]
-          },
-          duration_ms: (matched.duration || 180) * 1000,
-          streamUrl: bestStream.url
-        };
-
-        await playTrack(track, [track], 0);
-        return;
-      }
-    } catch (e) {
-      console.warn("Saavn quick play failed, trying Invidious:", e);
-      // Fallback: Invidious
-      try {
-        const instance = "https://iv.melmac.space";
-        const query = encodeURIComponent(`${name} ${artist}`);
-        const searchRes = await fetch(`${instance}/api/v1/search?q=${query}&type=video`);
-        if (!searchRes.ok) throw new Error("Search failed");
-        const searchData = await searchRes.json();
-        if (searchData.length === 0) return;
-
-        const matched = searchData[0];
-        const track: Track = {
-          id: matched.videoId,
-          name: matched.title,
-          artists: [{ name: matched.author }],
-          album: {
-            name: "Featured Single",
-            images: [{ url: matched.videoThumbnails?.[0]?.url || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=300" }]
-          },
-          duration_ms: (matched.lengthSeconds || 200) * 1000
-        };
-
-        await playTrack(track, [track], 0);
-      } catch (err) {
-        console.error("Quick play fallback failed:", err);
-      }
-    }
-  };
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
@@ -277,42 +309,123 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
-        {/* Popular Tracks Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Editor's Picks</Text>
-          <Text style={styles.sectionSub}>Tap to search and play instantly</Text>
+        {/* Language Selection Pills */}
+        <View style={styles.langSelectorRow}>
+          <Text style={styles.langLabel}>Music Language</Text>
+          <View style={styles.langPills}>
+            {(["hindi", "english", "telugu"] as const).map((lang) => (
+              <TouchableOpacity
+                key={lang}
+                style={[styles.langPill, language === lang && styles.langPillActive]}
+                onPress={() => setLanguage(lang)}
+              >
+                <Text style={[styles.langText, language === lang && styles.langTextActive]}>
+                  {lang.charAt(0).toUpperCase() + lang.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        <View style={styles.gridContainer}>
-          {FEATURED_TRACKS.map((track, idx) => (
+        {/* Curated Artist Selection (Singer Selection) */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Singer Selection</Text>
+          <Text style={styles.sectionSub}>Tap to view top songs and profiles</Text>
+        </View>
+        <ScrollView
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.singersScrollContent}
+        >
+          {POPULAR_SINGERS.map((singer) => (
             <TouchableOpacity
-              key={idx}
-              style={styles.trackCard}
-              onPress={() => playQuickSong(track.name, track.artist)}
+              key={singer.id}
+              style={styles.singerCard}
+              onPress={() => setSelectedArtist(singer)}
             >
-              <LinearGradient
-                colors={["#181818", "#121212"]}
-                style={styles.cardInner}
-              >
-                <View style={styles.cardImageContainer}>
-                  <Image
-                    source={{ uri: `https://picsum.photos/seed/${track.name}/150` }}
-                    style={styles.cardImage}
-                  />
-                  <View style={styles.playOverlay}>
-                    <Play color="#ffffff" fill="#ffffff" size={18} />
-                  </View>
-                </View>
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                  {track.name}
-                </Text>
-                <Text style={styles.cardArtist} numberOfLines={1}>
-                  {track.artist}
-                </Text>
-              </LinearGradient>
+              <Image source={{ uri: singer.image }} style={styles.singerAvatar} />
+              <Text style={styles.singerName} numberOfLines={1}>
+                {singer.name}
+              </Text>
             </TouchableOpacity>
           ))}
+        </ScrollView>
+
+        {/* Live Trending Songs Shelf */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Trending Songs</Text>
+          <Text style={styles.sectionSub}>The hottest chartbusters right now</Text>
         </View>
+        {loadingTrending ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#1db954" />
+          </View>
+        ) : (
+          <ScrollView
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalShelfContent}
+          >
+            {trendingSongs.map((track, idx) => (
+              <TouchableOpacity
+                key={track.id}
+                style={styles.shelfCard}
+                onPress={() => playTrack(track, trendingSongs, idx)}
+              >
+                <View style={styles.shelfImageContainer}>
+                  <Image source={{ uri: track.album.images[0]?.url }} style={styles.shelfCardImage} />
+                  <View style={styles.shelfPlayOverlay}>
+                    <Play color="#ffffff" fill="#ffffff" size={14} />
+                  </View>
+                </View>
+                <Text style={styles.shelfCardTitle} numberOfLines={1}>
+                  {track.name}
+                </Text>
+                <Text style={styles.shelfCardArtist} numberOfLines={1}>
+                  {track.artists.map((a) => a.name).join(", ")}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Live New Releases Shelf */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>New Releases</Text>
+          <Text style={styles.sectionSub}>Fresh upcoming drops and hits</Text>
+        </View>
+        {loadingNewReleases ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#1db954" />
+          </View>
+        ) : (
+          <ScrollView
+            horizontal={true}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalShelfContent}
+          >
+            {newReleases.map((track, idx) => (
+              <TouchableOpacity
+                key={track.id}
+                style={styles.shelfCard}
+                onPress={() => playTrack(track, newReleases, idx)}
+              >
+                <View style={styles.shelfImageContainer}>
+                  <Image source={{ uri: track.album.images[0]?.url }} style={styles.shelfCardImage} />
+                  <View style={styles.shelfPlayOverlay}>
+                    <Play color="#ffffff" fill="#ffffff" size={14} />
+                  </View>
+                </View>
+                <Text style={styles.shelfCardTitle} numberOfLines={1}>
+                  {track.name}
+                </Text>
+                <Text style={styles.shelfCardArtist} numberOfLines={1}>
+                  {track.artists.map((a) => a.name).join(", ")}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Info Box */}
         {user ? (

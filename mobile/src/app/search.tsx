@@ -19,6 +19,7 @@ import { Search, X, Play, Plus, Music, ListPlus, ChevronLeft } from "lucide-reac
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAudio, Track } from "@/context/AudioContext";
 import { LinearGradient } from "expo-linear-gradient";
+import ArtistDetailModal from "@/components/ArtistDetailModal";
 
 const { width } = Dimensions.get("window");
 
@@ -44,12 +45,18 @@ export default function SearchScreen() {
     addTrackToPlaylist,
     addToQueue,
     createPlaylist,
+    recentSearches,
+    addToRecentSearches,
+    removeRecentSearch,
+    clearRecentSearches,
   } = useAudio();
 
   const [inputVal, setInputVal] = useState(searchQuery);
-  const [searchMode, setSearchMode] = useState<"songs" | "albums">("songs");
+  const [searchMode, setSearchMode] = useState<"songs" | "albums" | "artists">("songs");
   const [albumResults, setAlbumResults] = useState<any[]>([]);
   const [isSearchingAlbums, setIsSearchingAlbums] = useState(false);
+  const [artistResults, setArtistResults] = useState<any[]>([]);
+  const [isSearchingArtists, setIsSearchingArtists] = useState(false);
   const [loadingAlbumId, setLoadingAlbumId] = useState<string | null>(null);
   const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<Track | null>(null);
   const [inlinePlaylistName, setInlinePlaylistName] = useState("");
@@ -59,14 +66,18 @@ export default function SearchScreen() {
   const [selectedAlbumTracks, setSelectedAlbumTracks] = useState<Track[]>([]);
   const [loadingAlbumDetails, setLoadingAlbumDetails] = useState(false);
 
+  const [selectedArtist, setSelectedArtist] = useState<any | null>(null);
+
   // Trigger search when input query or mode shifts
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       setSearchQuery(inputVal);
       if (searchMode === "songs") {
         performSearch(inputVal);
-      } else {
+      } else if (searchMode === "albums") {
         performAlbumSearch(inputVal);
+      } else {
+        performArtistSearch(inputVal);
       }
     }, 400);
 
@@ -103,6 +114,34 @@ export default function SearchScreen() {
       setAlbumResults([]);
     } finally {
       setIsSearchingAlbums(false);
+    }
+  };
+
+  const performArtistSearch = async (query: string) => {
+    if (!query.trim()) {
+      setArtistResults([]);
+      return;
+    }
+    setIsSearchingArtists(true);
+    try {
+      let json;
+      try {
+        const res = await fetch(`https://saavn.sumit.co/api/search/artists?query=${encodeURIComponent(query)}`);
+        if (res.ok) json = await res.json();
+      } catch (e) {
+        console.warn("Artist search failed, trying backup");
+      }
+
+      if (json && json.success && json.data?.results) {
+        setArtistResults(json.data.results);
+      } else {
+        setArtistResults([]);
+      }
+    } catch (e) {
+      console.error("Artist search failed:", e);
+      setArtistResults([]);
+    } finally {
+      setIsSearchingArtists(false);
     }
   };
 
@@ -234,6 +273,7 @@ export default function SearchScreen() {
     setInputVal("");
     setSearchQuery("");
     setAlbumResults([]);
+    setArtistResults([]);
   };
 
   const handleAddToQueue = (track: Track) => {
@@ -245,16 +285,57 @@ export default function SearchScreen() {
     }
   };
 
+  const handleViewArtist = (artist: any) => {
+    setSelectedArtist(artist);
+  };
+
   const selectCategory = (query: string) => {
     setSearchMode("songs");
     setInputVal(query);
+  };
+
+  const renderRecentSearches = () => {
+    if (recentSearches.length === 0) return null;
+    return (
+      <View style={styles.recentContainer}>
+        <View style={styles.recentHeader}>
+          <Text style={styles.recentTitle}>Recent Searches</Text>
+          <TouchableOpacity onPress={clearRecentSearches} style={styles.clearAllBtn}>
+            <Text style={styles.clearAllText}>Clear All</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentScrollContent}>
+          {recentSearches.map((query, index) => (
+            <View key={query + index} style={styles.recentPill}>
+              <TouchableOpacity
+                style={styles.recentPillPressable}
+                onPress={() => setInputVal(query)}
+              >
+                <Text style={styles.recentPillText} numberOfLines={1}>
+                  {query}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.recentPillClose}
+                onPress={() => removeRecentSearch(query)}
+              >
+                <X color="#b3b3b3" size={14} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
   };
 
   const renderTrackItem = ({ item, index }: { item: Track; index: number }) => (
     <View style={styles.trackItem}>
       <TouchableOpacity
         style={styles.trackPressable}
-        onPress={() => playTrack(item, searchResults, index)}
+        onPress={() => {
+          playTrack(item, searchResults, index);
+          if (inputVal.trim()) addToRecentSearches(inputVal);
+        }}
       >
         <Image source={{ uri: item.album.images[0]?.url }} style={styles.trackArt} />
         <View style={styles.trackMeta}>
@@ -297,7 +378,10 @@ export default function SearchScreen() {
       <View style={styles.trackItem}>
         <TouchableOpacity
           style={styles.trackPressable}
-          onPress={() => handleViewAlbum(item)}
+          onPress={() => {
+            handleViewAlbum(item);
+            if (inputVal.trim()) addToRecentSearches(inputVal);
+          }}
           disabled={loadingAlbumDetails}
         >
           <Image source={{ uri: albumImage }} style={styles.trackArt} />
@@ -321,8 +405,38 @@ export default function SearchScreen() {
     );
   };
 
-  const isCurrentSearching = searchMode === "songs" ? isSearching : isSearchingAlbums;
-  const hasResults = searchMode === "songs" ? searchResults.length > 0 : albumResults.length > 0;
+  const renderArtistItem = ({ item }: { item: any }) => {
+    const images = item.image || [];
+    const artistImage = images[images.length - 1]?.url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=150";
+
+    return (
+      <View style={styles.trackItem}>
+        <TouchableOpacity
+          style={styles.trackPressable}
+          onPress={() => {
+            handleViewArtist(item);
+            if (inputVal.trim()) addToRecentSearches(inputVal);
+          }}
+        >
+          <Image source={{ uri: artistImage }} style={styles.artistAvatar} />
+          <View style={styles.trackMeta}>
+            <Text style={styles.trackName} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.trackArtist} numberOfLines={1}>
+              Artist
+            </Text>
+          </View>
+          <View style={styles.playIconContainer}>
+            <Play color="#1db954" fill="#1db954" size={16} />
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const isCurrentSearching = searchMode === "songs" ? isSearching : (searchMode === "albums" ? isSearchingAlbums : isSearchingArtists);
+  const hasResults = searchMode === "songs" ? searchResults.length > 0 : (searchMode === "albums" ? albumResults.length > 0 : artistResults.length > 0);
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(10, insets.top) }]}>
@@ -332,7 +446,7 @@ export default function SearchScreen() {
         <View style={styles.searchBar}>
           <Search color="#ffffff" size={20} style={styles.searchIcon} />
           <TextInput
-            placeholder={searchMode === "songs" ? "Search for songs..." : "Search for albums or movies..."}
+            placeholder={searchMode === "songs" ? "Search for songs..." : (searchMode === "albums" ? "Search for albums or movies..." : "Search for singers...")}
             placeholderTextColor="#777"
             value={inputVal}
             onChangeText={setInputVal}
@@ -340,6 +454,9 @@ export default function SearchScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
+            onSubmitEditing={() => {
+              if (inputVal.trim()) addToRecentSearches(inputVal);
+            }}
           />
           {inputVal.length > 0 && (
             <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
@@ -363,7 +480,15 @@ export default function SearchScreen() {
             onPress={() => setSearchMode("albums")}
           >
             <Text style={[styles.segmentText, searchMode === "albums" && styles.segmentTextActive]}>
-              Albums & Movies
+              Albums
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentBtn, searchMode === "artists" && styles.segmentBtnActive]}
+            onPress={() => setSearchMode("artists")}
+          >
+            <Text style={[styles.segmentText, searchMode === "artists" && styles.segmentTextActive]}>
+              Artists
             </Text>
           </TouchableOpacity>
         </View>
@@ -383,9 +508,7 @@ export default function SearchScreen() {
           keyExtractor={(item) => item.name}
           numColumns={2}
           contentContainerStyle={styles.browseContainer}
-          ListHeaderComponent={
-            <Text style={styles.browseTitle}>Browse all categories</Text>
-          }
+          ListHeaderComponent={renderRecentSearches}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.categoryCard}
@@ -412,9 +535,9 @@ export default function SearchScreen() {
         /* Dynamic search lists */
         <FlatList
           key={searchMode}
-          data={searchMode === "songs" ? searchResults : albumResults}
+          data={searchMode === "songs" ? searchResults : (searchMode === "albums" ? albumResults : artistResults)}
           keyExtractor={(item) => item.id}
-          renderItem={searchMode === "songs" ? renderTrackItem : renderAlbumItem}
+          renderItem={searchMode === "songs" ? renderTrackItem : (searchMode === "albums" ? renderAlbumItem : renderArtistItem)}
           contentContainerStyle={styles.listContainer}
         />
       )}
@@ -614,6 +737,15 @@ export default function SearchScreen() {
           )}
         </LinearGradient>
       </Modal>
+
+      {/* Artist Detail Modal Overlay */}
+      <ArtistDetailModal
+        visible={selectedArtist !== null}
+        artistId={selectedArtist?.id}
+        artistName={selectedArtist?.name}
+        artistImage={selectedArtist?.image?.[selectedArtist.image.length - 1]?.url || selectedArtist?.image?.[0]?.url}
+        onClose={() => setSelectedArtist(null)}
+      />
     </View>
   );
 }
@@ -1027,5 +1159,64 @@ const styles = StyleSheet.create({
   },
   modalSongBtn: {
     padding: 8,
+  },
+  artistAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    marginRight: 12,
+  },
+  recentContainer: {
+    paddingHorizontal: 6,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  recentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  recentTitle: {
+    fontSize: 16,
+    color: "#ffffff",
+    fontWeight: "700",
+  },
+  clearAllBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  clearAllText: {
+    fontSize: 12,
+    color: "#ef4444",
+    fontWeight: "600",
+  },
+  recentScrollContent: {
+    paddingVertical: 4,
+    gap: 8,
+  },
+  recentPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1c1c1e",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    paddingLeft: 14,
+    paddingRight: 8,
+    height: 36,
+    gap: 8,
+  },
+  recentPillPressable: {
+    justifyContent: "center",
+  },
+  recentPillText: {
+    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "500",
+    maxWidth: 120,
+  },
+  recentPillClose: {
+    padding: 4,
   },
 });
