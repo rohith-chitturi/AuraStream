@@ -498,7 +498,7 @@ export default function SearchScreen() {
       {isCurrentSearching ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1db954" />
-          <Text style={styles.loadingText}>Searching Aura Stream...</Text>
+          <Text style={styles.loadingText}>Searching RohiBeatz...</Text>
         </View>
       ) : inputVal.trim() === "" ? (
         /* Categories Browse View */

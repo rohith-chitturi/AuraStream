@@ -42,12 +42,12 @@ const getMockLyrics = (title: string, durationSec: number) => {
   const baseLines = [
     `Now listening to ${title}...`,
     "Feel the beat flow through your mind",
-    "Aura Stream is taking you higher",
+    "RohiBeatz is taking you higher",
     "Lost in the sound of this rhythm",
     "Let the melodies guide your soul",
     "Every chord strikes a memory",
     "Riding the waves of the soundscape",
-    "This is your Aura, your moment",
+    "This is your RohiBeatz, your moment",
     "Floating in a digital dream",
     "Thank you for streaming with us!",
   ];
@@ -193,7 +193,7 @@ export default function PlayerView({ visible, onClose }: PlayerViewProps) {
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerSub}>PLAYING FROM PLAYBACK QUEUE</Text>
               <Text style={styles.headerTitle} numberOfLines={1}>
-                {currentTrack.album.name || "Aura Stream"}
+                {currentTrack.album.name || "RohiBeatz"}
               </Text>
             </View>
             <TouchableOpacity

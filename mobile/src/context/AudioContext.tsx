@@ -302,7 +302,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const storedUser = await AsyncStorage.getItem("aurastream_session");
+        const storedUser = await AsyncStorage.getItem("rohibeatz_session");
         if (storedUser) {
           setUser(JSON.parse(storedUser));
           setGuestMode(false);
@@ -745,7 +745,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Local Playlists Manager
   const loadRecentSearches = async () => {
     try {
-      const key = user ? `aurastream_recent_searches_${user.email}` : "aurastream_recent_searches";
+      const key = user ? `rohibeatz_recent_searches_${user.email}` : "rohibeatz_recent_searches";
       const stored = await AsyncStorage.getItem(key);
       if (stored) {
         setRecentSearches(JSON.parse(stored));
@@ -759,7 +759,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const saveRecentSearches = async (updated: string[]) => {
     try {
-      const key = user ? `aurastream_recent_searches_${user.email}` : "aurastream_recent_searches";
+      const key = user ? `rohibeatz_recent_searches_${user.email}` : "rohibeatz_recent_searches";
       await AsyncStorage.setItem(key, JSON.stringify(updated));
       setRecentSearches(updated);
     } catch (e) {
@@ -787,7 +787,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Local Playlists Manager
   const loadPlaylists = async () => {
     try {
-      const key = user ? `aurastream_playlists_${user.email}` : "aurastream_playlists";
+      const key = user ? `rohibeatz_playlists_${user.email}` : "rohibeatz_playlists";
       const stored = await AsyncStorage.getItem(key);
       if (stored) {
         setPlaylists(JSON.parse(stored));
@@ -801,7 +801,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const savePlaylists = async (updated: Playlist[]) => {
     try {
-      const key = user ? `aurastream_playlists_${user.email}` : "aurastream_playlists";
+      const key = user ? `rohibeatz_playlists_${user.email}` : "rohibeatz_playlists";
       await AsyncStorage.setItem(key, JSON.stringify(updated));
       setPlaylists(updated);
     } catch (e) {
@@ -957,13 +957,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const storedUsers = await AsyncStorage.getItem("aurastream_users");
+      const storedUsers = await AsyncStorage.getItem("rohibeatz_users");
       const usersList = storedUsers ? JSON.parse(storedUsers) : [];
       
       const found = usersList.find((u: any) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
       if (found) {
         const sessionUser = { username: found.username, email: found.email };
-        await AsyncStorage.setItem("aurastream_session", JSON.stringify(sessionUser));
+        await AsyncStorage.setItem("rohibeatz_session", JSON.stringify(sessionUser));
         setUser(sessionUser);
         setGuestMode(false);
         return true;
@@ -977,7 +977,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const register = async (username: string, email: string, password: string): Promise<boolean> => {
     try {
-      const storedUsers = await AsyncStorage.getItem("aurastream_users");
+      const storedUsers = await AsyncStorage.getItem("rohibeatz_users");
       const usersList = storedUsers ? JSON.parse(storedUsers) : [];
       
       if (usersList.some((u: any) => u.email.toLowerCase() === email.toLowerCase())) {
@@ -987,11 +987,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       const newUser = { username, email, password };
       const updatedList = [...usersList, newUser];
-      await AsyncStorage.setItem("aurastream_users", JSON.stringify(updatedList));
+      await AsyncStorage.setItem("rohibeatz_users", JSON.stringify(updatedList));
       
       // Auto log in after registration
       const sessionUser = { username, email };
-      await AsyncStorage.setItem("aurastream_session", JSON.stringify(sessionUser));
+      await AsyncStorage.setItem("rohibeatz_session", JSON.stringify(sessionUser));
       setUser(sessionUser);
       setGuestMode(false);
       return true;
@@ -1003,7 +1003,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const logout = async () => {
     try {
-      await AsyncStorage.removeItem("aurastream_session");
+      await AsyncStorage.removeItem("rohibeatz_session");
       setUser(null);
       setGuestMode(true);
       // Unload active sound when signing out
