@@ -23,10 +23,10 @@ const AppContent = () => {
             <div className="login-logo-container">
               <img
                 src="/logo.png"
-                alt="AuraStream Logo"
+                alt="RohiBeatz Logo"
                 className="login-logo"
               />
-              <span className="login-logo-text">AuraStream</span>
+              <span className="login-logo-text">RohiBeatz</span>
             </div>
             <h1 className="login-title" style={{ color: "#ff5c5c" }}>
               Connection Failed
