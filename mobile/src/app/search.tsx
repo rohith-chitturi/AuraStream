@@ -406,8 +406,8 @@ export default function SearchScreen() {
   };
 
   const renderArtistItem = ({ item }: { item: any }) => {
-    const images = item.image || [];
-    const artistImage = images[images.length - 1]?.url || "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=150";
+    const images = Array.isArray(item.image) ? item.image : [];
+    const artistImage = images.length > 0 ? (images[images.length - 1]?.url || images[0]?.url) : "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=150";
 
     return (
       <View style={styles.trackItem}>
