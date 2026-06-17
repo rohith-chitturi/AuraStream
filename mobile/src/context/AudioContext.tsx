@@ -285,11 +285,20 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const isPlayingRef = useRef<boolean>(false);
   const progressRef = useRef<number>(0);
   const userRef = useRef<any>(null);
+  const queueRef = useRef<Track[]>([]);
+  const queueIndexRef = useRef<number>(-1);
+  const durationRef = useRef<number>(0);
+  const isLoadingRef = useRef<boolean>(false);
+  const consecutiveErrors = useRef<number>(0);
 
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { progressRef.current = progress; }, [progress]);
   useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { queueIndexRef.current = queueIndex; }, [queueIndex]);
+  useEffect(() => { durationRef.current = duration; }, [duration]);
+  useEffect(() => { isLoadingRef.current = isLoading; }, [isLoading]);
 
   const broadcastMessage = (msg: any) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && roomId) {
@@ -353,15 +362,25 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
-    setIsPlaying(status.isPlaying);
-    setIsLoading(status.isBuffering);
+    if (status.isPlaying !== isPlayingRef.current) {
+      setIsPlaying(status.isPlaying);
+    }
+    if (status.isBuffering !== isLoadingRef.current) {
+      setIsLoading(status.isBuffering);
+    }
 
     if (status.durationMillis) {
-      setDuration(status.durationMillis / 1000);
+      const newDuration = Math.floor(status.durationMillis / 1000);
+      if (durationRef.current !== newDuration) {
+        setDuration(newDuration);
+      }
     }
 
     if (!isSeeking.current && status.positionMillis !== undefined) {
-      setProgress(status.positionMillis / 1000);
+      const newProgress = Math.floor(status.positionMillis / 1000);
+      if (progressRef.current !== newProgress) {
+        setProgress(newProgress);
+      }
     }
 
     // Auto-advance track on ended
@@ -437,24 +456,31 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw new Error("Unable to resolve a working media stream. Servers busy.");
       }
 
-      // Load and play audio
+      // Load and play audio (Update status once per second to save battery)
       const { sound } = await Audio.Sound.createAsync(
         { uri: streamUrl },
-        { shouldPlay: true },
+        { shouldPlay: true, progressUpdateIntervalMillis: 1000 },
         onPlaybackStatusUpdate
       );
       soundRef.current = sound;
       setIsPlaying(true);
       setIsLoading(false);
+      consecutiveErrors.current = 0; // Reset consecutive errors on successful play
     } catch (err: any) {
       console.error("Playback error:", err);
       setPlaybackError(err.message || "Failed to load audio stream.");
       setIsLoading(false);
       
-      // Auto skip to next after delay if error occurs
-      setTimeout(() => {
-        playNext();
-      }, 2000);
+      // Auto skip to next after delay if error occurs, but limit to 3 errors to prevent data/battery loops
+      consecutiveErrors.current += 1;
+      if (consecutiveErrors.current < 3) {
+        setTimeout(() => {
+          playNext();
+        }, 2000);
+      } else {
+        console.warn("Too many consecutive playback errors. Autoplay stopped.");
+        setPlaybackError("Autoplay stopped due to consecutive connection errors.");
+      }
     }
   };
 
@@ -489,19 +515,23 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const playNext = async () => {
-    if (queue.length === 0 || queueIndex === -1) return;
-    const nextIndex = (queueIndex + 1) % queue.length;
-    await playTrack(queue[nextIndex], queue, nextIndex);
+    const currentQueue = queueRef.current;
+    const currentIndex = queueIndexRef.current;
+    if (currentQueue.length === 0 || currentIndex === -1) return;
+    const nextIndex = (currentIndex + 1) % currentQueue.length;
+    await playTrack(currentQueue[nextIndex], currentQueue, nextIndex);
   };
 
   const playPrevious = async () => {
-    if (queue.length === 0 || queueIndex === -1) return;
-    if (progress > 3) {
+    const currentQueue = queueRef.current;
+    const currentIndex = queueIndexRef.current;
+    if (currentQueue.length === 0 || currentIndex === -1) return;
+    if (progressRef.current > 3) {
       await seekTo(0);
       return;
     }
-    const prevIndex = queueIndex === 0 ? queue.length - 1 : queueIndex - 1;
-    await playTrack(queue[prevIndex], queue, prevIndex);
+    const prevIndex = currentIndex === 0 ? currentQueue.length - 1 : currentIndex - 1;
+    await playTrack(currentQueue[prevIndex], currentQueue, prevIndex);
   };
 
   const seekTo = async (seconds: number, shouldBroadcast = true) => {
@@ -875,8 +905,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (json && json.success && json.data?.results?.length > 0) {
           saavnTracks = json.data.results.map((item: any) => {
             const streams = item.downloadUrl || [];
-            const bestStream = streams.find((s: any) => s.quality === "320kbps") || 
-                               streams.find((s: any) => s.quality === "160kbps") || 
+            const bestStream = streams.find((s: any) => s.quality === "160kbps") || 
+                               streams.find((s: any) => s.quality === "120kbps") || 
+                               streams.find((s: any) => s.quality === "320kbps") || 
+                               streams.find((s: any) => s.quality === "96kbps") || 
                                streams[streams.length - 1] || 
                                { url: "" };
 
