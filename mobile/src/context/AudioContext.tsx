@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import { Audio } from "expo-av";
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from "expo-audio";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface Track {
@@ -272,7 +272,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Auth state
   const [user, setUser] = useState<{ username: string; email: string } | null>(null);
 
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const statusSubscriptionRef = useRef<any>(null);
   const isSeeking = useRef(false);
 
   // Group Listening Room states
