@@ -684,12 +684,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     }
                   }
 
-                  if (soundRef.current) {
+                  if (playerRef.current) {
                     if (data.isPlaying && !isPlayingRef.current) {
-                      await soundRef.current.playAsync();
+                      playerRef.current.play();
                       setIsPlaying(true);
                     } else if (!data.isPlaying && isPlayingRef.current) {
-                      await soundRef.current.pauseAsync();
+                      playerRef.current.pause();
                       setIsPlaying(false);
                     }
                   }
@@ -712,8 +712,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     if (Math.abs(progressRef.current - targetPos) > 2) {
                       await seekTo(targetPos, false);
                     }
-                    if (soundRef.current && !isPlayingRef.current) {
-                      await soundRef.current.playAsync();
+                    if (playerRef.current && !isPlayingRef.current) {
+                      playerRef.current.play();
                       setIsPlaying(true);
                     }
                   }
@@ -723,8 +723,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
             case "pause":
               if (!asHost) {
-                if (soundRef.current && isPlayingRef.current) {
-                  await soundRef.current.pauseAsync();
+                if (playerRef.current && isPlayingRef.current) {
+                  playerRef.current.pause();
                   setIsPlaying(false);
                 }
               }
