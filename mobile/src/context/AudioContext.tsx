@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
-import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from "expo-audio";
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer, AudioStatus } from "expo-audio";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface Track {
@@ -357,30 +357,27 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   // Sync Progress updates from Sound object
-  const onPlaybackStatusUpdate = (status: any) => {
+  const onPlaybackStatusUpdate = (status: AudioStatus) => {
     if (!status.isLoaded) {
-      if (status.error) {
-        setPlaybackError(`Status error: ${status.error}`);
-      }
       return;
     }
 
-    if (status.isPlaying !== isPlayingRef.current) {
-      setIsPlaying(status.isPlaying);
+    if (status.playing !== isPlayingRef.current) {
+      setIsPlaying(status.playing);
     }
     if (status.isBuffering !== isLoadingRef.current) {
       setIsLoading(status.isBuffering);
     }
 
-    if (status.durationMillis) {
-      const newDuration = Math.floor(status.durationMillis / 1000);
+    if (status.duration !== undefined && status.duration !== null) {
+      const newDuration = Math.floor(status.duration);
       if (durationRef.current !== newDuration) {
         setDuration(newDuration);
       }
     }
 
-    if (!isSeeking.current && status.positionMillis !== undefined) {
-      const newProgress = Math.floor(status.positionMillis / 1000);
+    if (!isSeeking.current && status.currentTime !== undefined && status.currentTime !== null) {
+      const newProgress = Math.floor(status.currentTime);
       if (progressRef.current !== newProgress) {
         setProgress(newProgress);
       }
@@ -1061,9 +1058,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setUser(null);
       setGuestMode(true);
       // Unload active sound when signing out
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (statusSubscriptionRef.current) {
+        statusSubscriptionRef.current.remove();
+        statusSubscriptionRef.current = null;
+      }
+      if (playerRef.current) {
+        playerRef.current.release();
+        playerRef.current = null;
       }
       setCurrentTrack(null);
       setIsPlaying(false);
