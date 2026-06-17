@@ -48,8 +48,10 @@ export const searchAndGetAudioStream = async (trackName, artistName) => {
     if (saavnRes && saavnRes.success && saavnRes.data?.results?.length > 0) {
       const matched = saavnRes.data.results[0];
       const streams = matched.downloadUrl || [];
-      const bestStream = streams.find((s) => s.quality === "320kbps") || 
-                         streams.find((s) => s.quality === "160kbps") || 
+      const bestStream = streams.find((s) => s.quality === "160kbps") || 
+                         streams.find((s) => s.quality === "120kbps") || 
+                         streams.find((s) => s.quality === "320kbps") || 
+                         streams.find((s) => s.quality === "96kbps") || 
                          streams[streams.length - 1] || 
                          { url: "" };
       
@@ -80,8 +82,10 @@ export const searchAndGetAudioStream = async (trackName, artistName) => {
       if (saavnRes && saavnRes.success && saavnRes.data?.results?.length > 0) {
         const matched = saavnRes.data.results[0];
         const streams = matched.downloadUrl || [];
-        const bestStream = streams.find((s) => s.quality === "320kbps") || 
-                           streams.find((s) => s.quality === "160kbps") || 
+        const bestStream = streams.find((s) => s.quality === "160kbps") || 
+                           streams.find((s) => s.quality === "120kbps") || 
+                           streams.find((s) => s.quality === "320kbps") || 
+                           streams.find((s) => s.quality === "96kbps") || 
                            streams[streams.length - 1] || 
                            { url: "" };
         
