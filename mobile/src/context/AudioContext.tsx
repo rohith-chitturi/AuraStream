@@ -334,11 +334,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const setupAudio = async () => {
       try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          staysActiveInBackground: true,
-          playsInSilentModeIOS: true,
-          playThroughEarpieceAndroid: false,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+          interruptionMode: "doNotMix",
         });
       } catch (e) {
         console.warn("Failed to set audio mode:", e);
@@ -348,8 +347,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadPlaylists();
 
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
+      if (statusSubscriptionRef.current) {
+        statusSubscriptionRef.current.remove();
+      }
+      if (playerRef.current) {
+        playerRef.current.release();
       }
     };
   }, []);
@@ -390,7 +392,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Resolve media stream URL and play using expo-av
+  // Resolve media stream URL and play using expo-audio
   const playTrack = async (track: Track, newQueue: Track[] = [], index = -1, shouldBroadcast = true) => {
     setPlaybackError(null);
     setIsLoading(true);
@@ -413,9 +415,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     try {
-      // Unload previous track
-      if (soundRef.current) {
-        await soundRef.current.unloadAsync();
+      // Clean up previous subscription and player
+      if (statusSubscriptionRef.current) {
+        statusSubscriptionRef.current.remove();
+        statusSubscriptionRef.current = null;
+      }
+      if (playerRef.current) {
+        playerRef.current.release();
+        playerRef.current = null;
       }
 
       // Use direct streamUrl if available (e.g. from JioSaavn)
@@ -457,13 +464,27 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw new Error("Unable to resolve a working media stream. Servers busy.");
       }
 
-      // Load and play audio (Update status once per second to save battery)
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: streamUrl },
-        { shouldPlay: true, progressUpdateIntervalMillis: 1000 },
-        onPlaybackStatusUpdate
-      );
-      soundRef.current = sound;
+      // Create new AudioPlayer (expo-audio)
+      const player = createAudioPlayer(streamUrl);
+      playerRef.current = player;
+
+      // Subscribe to playback status updates
+      statusSubscriptionRef.current = player.addListener("playbackStatusUpdate", onPlaybackStatusUpdate);
+
+      // Set lock screen / notification metadata
+      setTimeout(() => {
+        if (playerRef.current === player) {
+          player.setActiveForLockScreen(true, {
+            title: track.name,
+            artist: track.artists.map((a) => a.name).join(", "),
+            albumTitle: track.album.name,
+            artworkUrl: track.album.images[0]?.url || "",
+          });
+        }
+      }, 500);
+
+      // Start playing
+      player.play();
       setIsPlaying(true);
       setIsLoading(false);
       consecutiveErrors.current = 0; // Reset consecutive errors on successful play
@@ -486,10 +507,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const togglePlay = async (shouldBroadcast = true) => {
-    if (!soundRef.current || !currentTrack) return;
+    if (!playerRef.current || !currentTrack) return;
     try {
       if (isPlaying) {
-        await soundRef.current.pauseAsync();
+        playerRef.current.pause();
         setIsPlaying(false);
         if (shouldBroadcast) {
           broadcastMessage({
@@ -498,7 +519,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           });
         }
       } else {
-        await soundRef.current.playAsync();
+        playerRef.current.play();
         setIsPlaying(true);
         if (shouldBroadcast) {
           broadcastMessage({
@@ -536,11 +557,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const seekTo = async (seconds: number, shouldBroadcast = true) => {
-    if (!soundRef.current) return;
+    if (!playerRef.current) return;
     try {
       isSeeking.current = true;
       setProgress(seconds);
-      await soundRef.current.setPositionAsync(seconds * 1000);
+      playerRef.current.seekTo(seconds);
       isSeeking.current = false;
 
       if (shouldBroadcast) {
