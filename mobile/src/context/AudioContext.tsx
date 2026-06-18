@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer, AudioStatus } from "expo-audio";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert, AppState, AppStateStatus } from "react-native";
 
 export interface Track {
   id: string;
@@ -356,6 +357,23 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
+  // Conserve battery by leaving rooms when app is backgrounded and not playing
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if ((nextAppState === "background" || nextAppState === "inactive") && !isPlayingRef.current) {
+        if (roomId) {
+          console.log("App backgrounded and not playing. Leaving room to conserve battery.");
+          leaveRoom();
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [roomId]);
+
   // Sync Progress updates from Sound object
   const onPlaybackStatusUpdate = (status: AudioStatus) => {
     if (!status.isLoaded) {
@@ -461,8 +479,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         throw new Error("Unable to resolve a working media stream. Servers busy.");
       }
 
-      // Create new AudioPlayer (expo-audio)
-      const player = createAudioPlayer(streamUrl);
+      // Create new AudioPlayer (expo-audio) with 1000ms update interval to save battery
+      const player = createAudioPlayer(streamUrl, { updateInterval: 1000 });
       playerRef.current = player;
 
       // Subscribe to playback status updates
@@ -859,6 +877,17 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const createPlaylist = async (name: string, initialTrack?: Track) => {
+    if (!user) {
+      Alert.alert(
+        "Authentication Required",
+        "Please sign in or create an account to create and manage playlists.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: () => setGuestMode(false) }
+        ]
+      );
+      return;
+    }
     const newPlaylist: Playlist = {
       id: `playlist_${Date.now()}`,
       name,
@@ -1056,7 +1085,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       await AsyncStorage.removeItem("rohibeatz_session");
       setUser(null);
-      setGuestMode(true);
+      setGuestMode(false);
       // Unload active sound when signing out
       if (statusSubscriptionRef.current) {
         statusSubscriptionRef.current.remove();
