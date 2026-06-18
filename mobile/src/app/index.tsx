@@ -36,7 +36,7 @@ const PRESET_MOODS = [
 ];
 
 export default function HomeScreen() {
-  const { playTrack, user, logout } = useAudio();
+  const { playTrack, user, logout, setGuestMode } = useAudio();
   const [aiGenerating, setAiGenerating] = useState(false);
   const [activeMood, setActiveMood] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
@@ -442,7 +442,7 @@ export default function HomeScreen() {
             <Text style={styles.infoText}>
               You are currently using RohiBeatz in Guest Mode. Playlists created will not be saved permanently to an account.
             </Text>
-            <TouchableOpacity onPress={logout} style={styles.loginBtn}>
+            <TouchableOpacity onPress={() => setGuestMode(false)} style={styles.loginBtn}>
               <Text style={styles.loginBtnText}>SIGN IN / CREATE ACCOUNT</Text>
             </TouchableOpacity>
           </View>

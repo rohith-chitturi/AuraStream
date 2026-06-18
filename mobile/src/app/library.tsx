@@ -31,6 +31,7 @@ export default function LibraryScreen() {
     logout,
     guestMode,
     addToQueue,
+    setGuestMode,
   } = useAudio();
 
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
@@ -202,7 +203,7 @@ export default function LibraryScreen() {
           </View>
 
           {guestMode && (
-            <TouchableOpacity onPress={logout} style={styles.guestBanner}>
+            <TouchableOpacity onPress={() => setGuestMode(false)} style={styles.guestBanner}>
               <Text style={styles.guestBannerText}>
                 You are in Guest Mode. <Text style={styles.guestBannerUnderline}>Sign in</Text> to persist playlists.
               </Text>
@@ -359,7 +360,11 @@ export default function LibraryScreen() {
               <TouchableOpacity
                 onPress={async () => {
                   setProfileModalVisible(false);
-                  await logout();
+                  if (user) {
+                    await logout();
+                  } else {
+                    setGuestMode(false);
+                  }
                 }}
                 style={[styles.profileLogoutBtn, !user && styles.profileLoginBtn]}
               >
