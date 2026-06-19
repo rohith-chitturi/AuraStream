@@ -376,6 +376,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Sync Progress updates from Sound object
   const onPlaybackStatusUpdate = (status: AudioStatus) => {
+    const notificationCommand = (status as any).notificationCommand;
+    if (notificationCommand === "next") {
+      playNext();
+      return;
+    }
+    if (notificationCommand === "previous") {
+      playPrevious();
+      return;
+    }
+
     if (!status.isLoaded) {
       return;
     }
@@ -489,11 +499,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Set lock screen / notification metadata
       setTimeout(() => {
         if (playerRef.current === player) {
+          const artworkUrl = track.album.images?.[0]?.url;
           player.setActiveForLockScreen(true, {
             title: track.name,
-            artist: track.artists.map((a) => a.name).join(", "),
-            albumTitle: track.album.name,
-            artworkUrl: track.album.images[0]?.url || "",
+            artist: track.artists?.map((a) => a.name).join(", ") || "Unknown Artist",
+            albumTitle: track.album.name || "Unknown Album",
+            ...(artworkUrl && artworkUrl.startsWith("http") ? { artworkUrl } : {}),
           });
         }
       }, 500);
